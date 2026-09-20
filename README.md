@@ -4,7 +4,7 @@
 
 # 🏟️ PitchView
 
-![Version](https://img.shields.io/badge/version-1.2.1-30d158?logo=electron&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.2.2-30d158?logo=electron&logoColor=white)
 ![Build](https://img.shields.io/github/actions/workflow/status/WhyAlwaysEng/PitchView/release.yml?branch=main&label=build&logo=github)
 ![License](https://img.shields.io/badge/license-MIT-30d158)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078d4?logo=windows11&logoColor=white)
