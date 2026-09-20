@@ -87,6 +87,7 @@ Multi-view football player for Windows · สร้างด้วย Electron
 ```bash
 npm install
 npm start        # รันแบบ dev
+npm test         # รันชุดทดสอบทั้งหมดแบบ headless (ใช้ Edge ในเครื่อง)
 npm run dist     # build ตัวติดตั้ง NSIS ลงโฟลเดอร์ dist/
 ```
 
@@ -99,7 +100,7 @@ npm run dist     # build ตัวติดตั้ง NSIS ลงโฟลเ�
 | `popout.html` | หน้าควบคุมของหน้าต่าง pop-out |
 | `assets/` | โลโก้ (icon.svg/png/ico — สร้างด้วย `scripts/make-icon.js`) |
 | `code-viewer.html` | เครื่องมือดูซอร์สโค้ดพร้อม syntax highlighter (ไม่ใช้ dependency) |
-| `test/` | ชุดทดสอบ interactive (`test/harness.html` — เปิดผ่าน local server) |
+| `test/` | ชุดทดสอบ (`npm test` รันแบบ headless อัตโนมัติ — CI ใช้กัน Release พัง) |
 
 ## 🔄 ปล่อยเวอร์ชันใหม่ (Release)
 

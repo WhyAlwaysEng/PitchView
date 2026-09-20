@@ -24,6 +24,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # รันชุดทดสอบทั้งหมดแบบ headless (Edge มากับ runner อยู่แล้ว) — fail = ไม่ปล่อย Release
+      - name: Run test harness
+        run: npm test
+
       # กันลืม bump version: tag v* ต้องตรงกับ version ใน package.json เสมอ
       - name: Verify tag matches package.json version
         if: startsWith(github.ref, 'refs/tags/v')
