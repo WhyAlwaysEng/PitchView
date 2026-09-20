@@ -188,8 +188,8 @@ ipcMain.on('popout-stream', (event, payload) => {
   const cursor = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursor);
   const wa = display.workArea;
-  const width = 640;
-  const height = 400;
+  const width = 780;
+  const height = 440;
 
   const win = new BrowserWindow({
     width: width,
@@ -217,7 +217,10 @@ ipcMain.on('popout-stream', (event, payload) => {
     '&url=' + encodeURIComponent(url) +
     '&vol=' + (volume !== undefined ? volume : 100) +
     '&zoom=' + (zoom || 1) +
-    '&session=' + encodeURIComponent(popoutPartition);
+    '&session=' + encodeURIComponent(popoutPartition) +
+    '&brightness=' + (payload.brightness !== undefined ? payload.brightness : 100) +
+    '&saturation=' + (payload.saturation !== undefined ? payload.saturation : 100) +
+    '&freeze=' + (payload.freezeDetect === false ? '0' : '1');
   win.loadURL(popoutUrl).catch(err => console.error('popout load fail:', err));
 
   // Ctrl+P ยังสลับการตรึงได้เหมือนเดิม (มีปุ่มในหน้าต่างให้กดแล้ว ไม่ต้องจำคีย์ลัดก็ได้)
@@ -277,6 +280,14 @@ ipcMain.on('popout-control', (event, streamId, action) => {
   if (!meta || meta.win.isDestroyed()) return;
   if (action === 'toggle-pin') {
     togglePopoutPin(streamId);
+  }
+});
+
+// ค่าที่ปรับในหน้าต่าง pop-out → ส่งต่อให้หน้าหลักบันทึกลงจอนั้น (ซิงก์สองทาง)
+ipcMain.on('popout-values', (event, payload) => {
+  if (!payload || !payload.streamId) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('popout-values', payload);
   }
 });
 

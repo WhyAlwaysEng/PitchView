@@ -221,8 +221,13 @@
       }
     }
 
-    // 8. Safe Watchdog Engine
+    // 8. Safe Watchdog Engine — สคริปต์ชุดเดียวกับ pop-out (shared/pv-inject.js)
     function injectWatchdogAndBypass(id) {
+      const wv = document.getElementById(`wv-${id}`);
+      const item = streams.find(s => s.id === id);
+      if (!wv) return;
+      PV.pvInjectWatchdog(wv, item?.freezeDetect !== false);
+      /* โค้ด watchdog เดิม (แทนด้วย shared engine ด้านบน):
       const wv = document.getElementById(`wv-${id}`);
       const item = streams.find(s => s.id === id);
       if (!wv) return;
@@ -272,58 +277,15 @@
             }
           }, 1000);
         })();
-      `;
-      wv.executeJavaScript(script).catch(() => {});
+      จบโค้ด watchdog เดิม */
     }
 
     // ฟังก์ชัน Advance: ดึงเฉพาะกล่องวิดีโอหรือ Iframe หลักมาขยายเต็มกรอบ
+    // สคริปต์ชุดเดียวกับ pop-out (shared/pv-inject.js) — แก้ที่เดียวมีผลทั้งสองหน้า
     function runAdvanceAutoFix(id) {
       const wv = document.getElementById(`wv-${id}`);
       if (!wv) return;
-
-      const advanceScript = `
-        (function() {
-          let attempts = 0;
-          const interval = setInterval(() => {
-            attempts++;
-            const video = document.querySelector('video');
-            const iframe = document.querySelector('iframe[src*="player"]') || 
-                           document.querySelector('iframe[src*="embed"]') || 
-                           document.querySelector('iframe[src*="stream"]') ||
-                           document.querySelector('iframe');
-            // Also try to find any element with video-like dimensions or class names
-            const videoContainer = document.querySelector('[class*="video"]') || 
-                                  document.querySelector('[class*="player"]') ||
-                                  document.querySelector('video');
-            const target = iframe || video || videoContainer;
-
-            if (video) {
-              video.muted = false;
-              video.play().catch(() => {});
-            }
-
-            if (target) {
-              clearInterval(interval);
-              // If it's a video element, unmute and play it first
-              if (target.tagName === 'VIDEO') {
-                target.muted = false;
-                target.volume = 1.0;
-                target.play().catch(() => {});
-              }
-              target.style.position = 'fixed';
-              target.style.top = '0';
-              target.style.left = '0';
-              target.style.width = '100vw';
-              target.style.height = '100vh';
-              target.style.zIndex = '999999999';
-              target.style.background = '#000';
-              document.body.style.overflow = 'hidden';
-            }
-            if (attempts >= 20) clearInterval(interval);
-          }, 500);
-        })();
-      `;
-      wv.executeJavaScript(advanceScript).catch(() => {});
+      PV.pvAdvance(wv);
     }
 
     // 9. Incremental DOM Slot Creation
@@ -899,6 +861,31 @@
       if (u && u !== 'about:blank' && u !== stored.el.getAttribute('src')) stored.el.setAttribute('src', u);
       const handle = box.querySelector('.resize-handle');
       box.insertBefore(stored.el, handle || null);
+      // ค่าที่ปรับไว้ในหน้าต่าง pop-out ตามกลับมาที่กริดด้วย (zoom/โทน/สว่าง/ป้าย %/ปุ่ม Guard)
+      // ต้อง apply "หลัง" webview กลับเข้า DOM แล้วเท่านั้น (ตอนยังหลุดจาก DOM คำสั่งจะ throw)
+      try {
+        const item = streams.find(s => s.id === id);
+        if (item) {
+          const applyBack = () => {
+            try {
+              stored.el.setZoomFactor(item.zoom || 1.0);
+              const b = (item.brightness !== undefined) ? item.brightness : 100;
+              const sat = (item.saturation !== undefined) ? item.saturation : 100;
+              stored.el.style.filter = (b !== 100 || sat !== 100) ? `brightness(${b}%) saturate(${sat}%)` : '';
+              const zl = document.getElementById(`zoom-txt-${id}`);
+              if (zl) zl.innerText = `${Math.round((item.zoom || 1.0) * 100)}%`;
+              const fbtn = document.getElementById(`freeze-btn-${id}`);
+              if (fbtn) {
+                fbtn.className = `btn-freeze ${item.freezeDetect !== false ? 'active' : ''}`;
+                fbtn.innerText = item.freezeDetect !== false ? '🛡️ Guard' : '🛡️ Off';
+              }
+            } catch (e) {}
+          };
+          applyBack();
+          setTimeout(applyBack, 400); // เผื่อเว็บวิวยังไม่พร้อมตอนเพิ่งใส่กลับ
+          stored.el.addEventListener('dom-ready', applyBack, { once: true });
+        }
+      } catch (err) {}
     }
 
     function popoutStream(id) {
@@ -919,9 +906,12 @@
       ipcRenderer.send('popout-stream', {
         streamId: id,
         url: url,
-        zoom: (wv && typeof wv.getZoomFactor === 'function') ? wv.getZoomFactor() : 1.0,
+        zoom: (wv && typeof wv.getZoomFactor === 'function') ? wv.getZoomFactor() : (item.zoom || 1.0),
         volume: item.volume !== undefined ? item.volume : 100,
-        session: part
+        session: part,
+        brightness: item.brightness !== undefined ? item.brightness : 100,
+        saturation: item.saturation !== undefined ? item.saturation : 100,
+        freezeDetect: item.freezeDetect !== false
       });
 
       // หยุดเล่นซ้ำในกริด: ถอด webview ออกจาก DOM (สตรีมต้นทางหยุด) แล้ววาง placeholder แทน
@@ -1343,6 +1333,19 @@
       item.url = url;
       const input = document.getElementById(`input-${streamId}`);
       if (input && document.activeElement !== input) input.value = url;
+      saveToStorageSilent();
+    });
+
+    // ปรับค่าในหน้าต่าง pop-out → ซิงก์กลับจอในกริด (zoom/โทน/สว่าง/เสียง/Guard) แล้วบันทึก
+    ipcRenderer.on('popout-values', (event, payload) => {
+      if (!payload || !payload.streamId) return;
+      const item = streams.find(s => s.id === payload.streamId);
+      if (!item) return;
+      if (payload.zoom !== undefined) item.zoom = payload.zoom;
+      if (payload.brightness !== undefined) item.brightness = payload.brightness;
+      if (payload.saturation !== undefined) item.saturation = payload.saturation;
+      if (payload.freezeDetect !== undefined) item.freezeDetect = payload.freezeDetect;
+      if (payload.volume !== undefined) item.volume = payload.volume;
       saveToStorageSilent();
     });
 

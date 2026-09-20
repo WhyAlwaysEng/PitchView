@@ -16,10 +16,14 @@ const ROOT = path.join(__dirname, '..');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  // เซิร์ฟเวอร์จำลองในเครื่อง — ทดสอบ watchdog หน้า login โดยไม่พึ่งเน็ต/ไม่ช้า
+  // เซิร์ฟเวอร์จำลองในเครื่อง — ทดสอบ watchdog หน้า login + หน้าวิดีโอ (ทดสอบ Advance) + หน้าเดิน nav
+  const page = (t) => `<html><body>${t}</body></html>`;
   const simServer = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end('<html><body>login page test</body></html>');
+    if (req.url.startsWith('/video')) res.end(page('<video id="v" style="width:320px"></video>'));
+    else if (req.url.startsWith('/p1')) res.end(page('page one'));
+    else if (req.url.startsWith('/p2')) res.end(page('page two'));
+    else res.end(page('login page test'));
   });
   await new Promise((r) => simServer.listen(18901, '127.0.0.1', r));
 
@@ -32,6 +36,16 @@ async function main() {
 
   try {
     const mainWin = await app.firstWindow();
+    await mainWin.waitForFunction(() => !!window.__pv, null, { timeout: 30000 });
+
+    // รีเซ็ตค่าปรับจอ 1 ให้เป็นค่าเริ่มต้นก่อนทดสอบ (localStorage ค้างจากรอบรันก่อนทำค่าเพี้ยน)
+    await mainWin.evaluate(() => {
+      const arr = JSON.parse(localStorage.getItem('saved_streams') || '[]');
+      const s = arr.find((x) => x.id === 1);
+      if (s) { s.zoom = 1.0; s.brightness = 100; s.saturation = 100; s.freezeDetect = true; s.volume = 100; }
+      localStorage.setItem('saved_streams', JSON.stringify(arr));
+    });
+    await mainWin.reload();
     await mainWin.waitForFunction(() => !!window.__pv, null, { timeout: 30000 });
     console.log('✅ หน้าหลักพร้อม');
 
@@ -141,6 +155,77 @@ async function main() {
     }
     console.log('✅ ต้นทางในกริดหยุดแล้ว (webview ถอดออก + placeholder แสดง)');
 
+    // 3.5) ★ ปุ่มใหม่ในหน้าต่างแยก — ต้องครบเท่าหน้าปกติ
+    const pw = () => popWin.evaluate(() => document.getElementById('wv'));
+
+    // ⚡ Advance: โหลดหน้าจำลองที่มี video กดปุ่มจริง แล้วเช็คในเว็บว่าวิดีโอถูกดึงเต็มกรอบ
+    await popWin.evaluate(() => document.getElementById('wv').loadURL('http://127.0.0.1:18901/video'));
+    await popWin.waitForFunction(() => {
+      const wv = document.getElementById('wv');
+      try { return wv.getURL().includes('/video'); } catch (e) { return false; }
+    }, null, { timeout: 15000 });
+    await sleep(600);
+    await popWin.click('.btn-advance');
+    await sleep(1600);
+    const adv = await popWin.evaluate(() =>
+      document.getElementById('wv').executeJavaScript('(() => { const v = document.querySelector("video"); return v ? { pos: v.style.position, overflow: document.body.style.overflow } : null; })()')
+    );
+    if (!adv || adv.pos !== 'fixed' || adv.overflow !== 'hidden') throw new Error('Advance ในหน้าต่างแยกไม่ทำงาน: ' + JSON.stringify(adv));
+    console.log('✅ ปุ่ม ⚡ Advance ในหน้าต่างแยกดึงวิดีโอเต็มกรอบได้จริง');
+
+    // ◀▶ เดินประวัติ: โหลด 2 หน้า ย้อนกลับ/ไปหน้าถัดไปผ่านปุ่มจริง
+    await popWin.evaluate(() => document.getElementById('wv').loadURL('http://127.0.0.1:18901/p1'));
+    await popWin.waitForFunction(() => {
+      const wv = document.getElementById('wv');
+      try { return wv.getURL().includes('/p1'); } catch (e) { return false; }
+    }, null, { timeout: 15000 });
+    await popWin.evaluate(() => document.getElementById('wv').loadURL('http://127.0.0.1:18901/p2'));
+    await popWin.waitForFunction(() => {
+      const wv = document.getElementById('wv');
+      try { return wv.getURL().includes('/p2') && wv.canGoBack(); } catch (e) { return false; }
+    }, null, { timeout: 15000 });
+    await popWin.click('#back-btn');
+    await popWin.waitForFunction(() => {
+      const wv = document.getElementById('wv');
+      try { return wv.getURL().includes('/p1'); } catch (e) { return false; }
+    }, null, { timeout: 15000 });
+    await popWin.click('#fwd-btn');
+    await popWin.waitForFunction(() => {
+      const wv = document.getElementById('wv');
+      try { return wv.getURL().includes('/p2'); } catch (e) { return false; }
+    }, null, { timeout: 15000 });
+    console.log('✅ ปุ่ม ◀▶ เดินประวัติหน้าในหน้าต่างแยกได้');
+
+    // ซูม/ความสว่าง/โทน/Guard: กดปุ่มจริงแล้วเช็ค UI + ค่าซิงก์กลับจอในกริด
+    await popWin.evaluate(() => document.querySelectorAll('.zoom-control button')[1].click());
+    const ztxt = await popWin.evaluate(() => document.getElementById('zoom-txt').innerText);
+    if (ztxt !== '110%') throw new Error('ซูมไม่ทำงาน: ' + ztxt);
+    await mainWin.waitForFunction(() => {
+      try { return JSON.parse(localStorage.getItem('saved_streams')).find(s => s.id === 1).zoom === 1.1; }
+      catch (e) { return false; }
+    }, null, { timeout: 8000 });
+    console.log('✅ ปุ่ม ซูม + ทำงาน และค่าซิงก์กลับจอในกริด (บันทึก 110% แล้ว)');
+
+    await popWin.evaluate(() => document.getElementById('bright-btn').click());
+    const filter1 = await popWin.evaluate(() => document.getElementById('wv').style.filter);
+    if (!filter1.includes('brightness(110%)')) throw new Error('ความสว่างไม่ทำงาน: ' + filter1);
+    await popWin.evaluate(() => document.getElementById('sat-btn').click());
+    const filter2 = await popWin.evaluate(() => ({
+      f: document.getElementById('wv').style.filter,
+      active: document.getElementById('sat-btn').classList.contains('active')
+    }));
+    if (!filter2.f.includes('saturate(60%)') || !filter2.active) throw new Error('โทนนุ่มตาไม่ทำงาน: ' + JSON.stringify(filter2));
+    console.log('✅ ปุ่ม ☀ ความสว่าง และ ◐ โทนนุ่มตา ทำงาน (filter ใช้จริงกับ webview)');
+
+    await popWin.evaluate(() => document.getElementById('guard-btn').click());
+    const gtxt = await popWin.evaluate(() => document.getElementById('guard-btn').innerText);
+    if (gtxt !== '🛡️ Off') throw new Error('ปุ่ม Guard ไม่สลับ: ' + gtxt);
+    await mainWin.waitForFunction(() => {
+      try { return JSON.parse(localStorage.getItem('saved_streams')).find(s => s.id === 1).freezeDetect === false; }
+      catch (e) { return false; }
+    }, null, { timeout: 8000 });
+    console.log('✅ ปุ่ม 🛡️ Guard สลับได้ และสถานะซิงก์กลับจอในกริด');
+
     // 4) คลิก placeholder = ปิดหน้าต่างแยก + webview กลับเข้ากริด
     await mainWin.click('#popout-ph-1');
     await mainWin.waitForFunction(
@@ -152,6 +237,21 @@ async function main() {
     const wins = app.windows().filter((w) => w.url().includes('popout.html'));
     if (wins.length > 0) throw new Error('หน้าต่างแยกยังไม่ปิด');
     console.log('✅ คลิก placeholder ดึงจอกลับกริดได้ (webview กลับมา + หน้าต่างแยกปิดแล้ว)');
+
+    // ★ ค่าที่ปรับในหน้าต่างแยกต้องตามกลับมาที่กริด (zoom 110% จากการทดสอบข้างบน)
+    await sleep(600);
+    const restored = await mainWin.evaluate(() => {
+      const wv = document.getElementById('wv-1');
+      return {
+        zoom: (typeof wv.getZoomFactor === 'function') ? wv.getZoomFactor() : null,
+        label: (document.getElementById('zoom-txt-1') || {}).innerText || null,
+        guard: (document.getElementById('freeze-btn-1') || {}).innerText || null
+      };
+    });
+    if (Math.abs((restored.zoom || 0) - 1.1) > 0.01) throw new Error('ซูมไม่ตามกลับกริด: ' + JSON.stringify(restored));
+    if (restored.label !== '110%') throw new Error('ป้าย % ไม่อัปเดต: ' + restored.label);
+    if (restored.guard !== '🛡️ Off') throw new Error('สถานะ Guard ไม่ตามกลับ: ' + restored.guard);
+    console.log('✅ ค่าที่ปรับในหน้าต่างแยกตามกลับจอกริดครบ (zoom 110% + ป้าย + Guard Off)');
 
     // 5) ★ watchdog ห้ามรีโหลดหน้า login (อาการ "เข้าแข่งอยู่เด้ง login ใหม่" อีกจุด)
     await mainWin.evaluate(() => {

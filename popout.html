@@ -48,7 +48,7 @@
       padding: 4px 8px;
       background: var(--surface);
       border-bottom: 1px solid var(--border-soft);
-      flex-wrap: nowrap;
+      flex-wrap: wrap; /* หน้าต่างแคบ = ปุ่มตัดลงแถวสอง ไม่ล้นขอบ */
       z-index: 10;
     }
     .popout-bar button {
@@ -72,6 +72,19 @@
     }
     .popout-bar button.btn-close { background: transparent; border-color: transparent; color: var(--danger); }
     .popout-bar button.btn-close:hover { background: rgba(255, 90, 95, 0.14); border-color: transparent; color: var(--danger); }
+
+    .popout-bar button.btn-advance { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .popout-bar button.btn-advance:hover { background: var(--accent-soft); }
+    .popout-bar button.nav-btn:disabled { opacity: 0.35; cursor: default; }
+    .popout-bar button.nav-btn:disabled:hover { background: transparent; color: var(--dim); border-color: var(--border); }
+    .popout-bar button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+    .zoom-control {
+      display: flex; align-items: center; gap: 2px;
+      background: var(--bg); padding: 2px 6px;
+      border-radius: 8px; border: 1px solid var(--border-soft);
+    }
+    .zoom-control button { border: none; padding: 3px 7px; font-size: 12px; }
+    .zoom-control span { font-size: 10px; min-width: 34px; text-align: center; color: #aaa; }
 
     .vol-control {
       display: flex;
@@ -106,6 +119,17 @@
       <span id="vol-txt">100%</span>
     </div>
     <button onclick="refreshStream()" title="รีเฟรชสตรีม">🔄 รีเฟรช</button>
+    <button class="btn-advance" onclick="runAdvance()" title="Auto-Play + Focus — ดึงวิดีโอเต็มกรอบ">⚡ Advance</button>
+    <button class="nav-btn" id="back-btn" onclick="goBack()" title="ย้อนกลับหน้าก่อน" disabled>◀</button>
+    <button class="nav-btn" id="fwd-btn" onclick="goForward()" title="ไปหน้าถัดไป" disabled>▶</button>
+    <div class="zoom-control">
+      <button onclick="adjustZoom(-0.1)" title="ซูมออก">−</button>
+      <span id="zoom-txt">100%</span>
+      <button onclick="adjustZoom(0.1)" title="ซูมเข้า">+</button>
+      <button id="sat-btn" onclick="toggleSaturation()" title="สลับโทนสี: ปกติ / นุ่มตา (จางลง)">◐</button>
+    </div>
+    <button id="bright-btn" onclick="adjustBrightness(10)" title="ปรับความสว่าง (เลื่อนล้อเมาส์บนปุ่ม = ลดความสว่าง)">☀</button>
+    <button id="guard-btn" onclick="toggleGuard()" title="Guard กันภาพค้าง: ดีดวิดีโอต่อเองเมื่อหยุดเล่น">🛡️ Guard</button>
     <div class="mini-theme" title="เปลี่ยนสีเน้นของแอป (เห็นชัดบนพื้นหลังมืด)">
       <button style="background:#30d158" onclick="setLocalAccent('#30d158')"></button>
       <button style="background:#64b5f6" onclick="setLocalAccent('#64b5f6')"></button>
@@ -133,6 +157,22 @@
     const popoutPartition = params.get('session') || 'persist:dooball_session';
     const initialVol = Number(params.get('vol') || 100);
     const initialZoom = Number(params.get('zoom') || 1);
+    const initialBrightness = Number(params.get('brightness') || 100);
+    const initialSaturation = Number(params.get('saturation') || 100);
+    const initialGuard = params.get('freeze') !== '0';
+
+    // สคริปต์ Advance/Guard ชุดเดียวกับหน้าหลัก (shared/pv-inject.js)
+    const PV = require('./shared/pv-inject.js');
+
+    // ค่าจอนี้ เริ่มจากค่าล่าสุดของจอต้นทาง — ปรับตรงนี้แล้วซิงก์กลับจอในกริดอัตโนมัติ
+    let zoom = initialZoom;
+    let brightness = initialBrightness;
+    let saturation = initialSaturation;
+    let guardOn = initialGuard;
+
+    const syncValues = () => ipcRenderer.send('popout-values', {
+      streamId: streamId, zoom: zoom, brightness: brightness, saturation: saturation, freezeDetect: guardOn
+    });
 
     let muted = false;
     let pinned = false;
@@ -151,10 +191,15 @@
     wv.setAttribute('src', url);
 
     wv.addEventListener('dom-ready', () => {
-      if (initialZoom && initialZoom !== 1) wv.setZoomFactor(initialZoom);
+      wv.setZoomFactor(zoom);
+      applyFilter();
       setVolume(initialVol);
       wv.setAudioMuted(muted);
       updateMuteUI();
+      updateGuardUI();
+      // 🛡️ Guard ทำงานอัตโนมัติ (ชุดเดียวกับจอในกริด — ไม่แตะหน้า login)
+      PV.pvInjectWatchdog(wv, guardOn);
+      updateNavButtons();
       // สั่งเล่นอัตโนมัติเมื่อโหลดเสร็จ
       wv.executeJavaScript(`
         (function() {
@@ -169,6 +214,7 @@
         const cur = wv.getURL();
         if (cur && cur !== 'about:blank') ipcRenderer.send('popout-url', { streamId: streamId, url: cur });
       } catch (err) {}
+      updateNavButtons();
     };
     wv.addEventListener('did-navigate', syncUrlBack);
     wv.addEventListener('did-navigate-in-page', syncUrlBack);
@@ -188,6 +234,12 @@
       setVolume(next);
     }, { passive: false });
 
+    // เลื่อนล้อเมาส์บนปุ่ม ☀ = ลดความสว่าง (เหมือนหน้าหลัก)
+    document.getElementById('bright-btn').addEventListener('wheel', (e) => {
+      e.preventDefault();
+      adjustBrightness(e.deltaY < 0 ? 10 : -10);
+    }, { passive: false });
+
     function updateMuteUI() {
       const btn = document.getElementById('mute-btn');
       if (btn) {
@@ -200,6 +252,8 @@
     function setVolume(v) {
       const frac = v / 100;
       document.getElementById('vol-txt').innerText = v + '%';
+      // ซิงก์ระดับเสียงกลับจอในกริดด้วย
+      ipcRenderer.send('popout-values', { streamId: streamId, volume: Number(v) });
       // ถ้าปิดเสียงอยู่แล้วลากเพิ่ม ให้เลิกปิดเสียงพร้อมกัน
       if (muted && frac > 0) {
         muted = false;
@@ -211,6 +265,64 @@
           document.querySelectorAll('video').forEach(v => { v.volume = ${frac}; });
         })();
       `).catch(() => {});
+    }
+
+    // ⚡ Advance — สคริปต์ชุดเดียวกับหน้าหลัก
+    function runAdvance() { PV.pvAdvance(wv); }
+
+    // ◀▶ เดินประวัติหน้า (ปุ่มจางเมื่อเดินไม่ได้)
+    function goBack() { try { if (wv.canGoBack()) wv.goBack(); } catch (e) {} }
+    function goForward() { try { if (wv.canGoForward()) wv.goForward(); } catch (e) {} }
+    function updateNavButtons() {
+      const b = document.getElementById('back-btn');
+      const f = document.getElementById('fwd-btn');
+      try {
+        if (b) b.disabled = !wv.canGoBack();
+        if (f) f.disabled = !wv.canGoForward();
+      } catch (e) {}
+    }
+
+    // ซูมเข้า/ออก (ขอบเขตเท่าหน้าหลัก: 50%–200%)
+    function adjustZoom(delta) {
+      zoom = Math.round((zoom + delta) * 10) / 10;
+      zoom = Math.min(Math.max(zoom, 0.5), 2.0);
+      try { wv.setZoomFactor(zoom); } catch (e) {}
+      const t = document.getElementById('zoom-txt');
+      if (t) t.innerText = `${Math.round(zoom * 100)}%`;
+      syncValues();
+    }
+
+    // ☀ ความสว่าง (กด = สว่างขึ้น / เลื่อนล้อเมาส์ = ลด) และ ◐ โทนนุ่มตา
+    function adjustBrightness(delta) {
+      brightness = Math.min(150, Math.max(50, brightness + delta));
+      applyFilter();
+      syncValues();
+    }
+    function toggleSaturation() {
+      saturation = (saturation === 100) ? 60 : 100;
+      applyFilter();
+      const sb = document.getElementById('sat-btn');
+      if (sb) sb.classList.toggle('active', saturation !== 100);
+      syncValues();
+    }
+    function applyFilter() {
+      try {
+        wv.style.filter = (brightness !== 100 || saturation !== 100) ? `brightness(${brightness}%) saturate(${saturation}%)` : '';
+      } catch (e) {}
+    }
+
+    // 🛡️ Guard กันภาพค้าง — สลับได้ (ค่าใหม่มีผลทันทีที่หน้าโหลดครั้งถัดไป)
+    function toggleGuard() {
+      guardOn = !guardOn;
+      updateGuardUI();
+      syncValues();
+    }
+    function updateGuardUI() {
+      const btn = document.getElementById('guard-btn');
+      if (btn) {
+        btn.classList.toggle('active', guardOn);
+        btn.innerText = guardOn ? '🛡️ Guard' : '🛡️ Off';
+      }
     }
 
     function refreshStream() {
