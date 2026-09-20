@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PitchView — ดูฟุตบอลหลายจอพร้อมกันในหน้าต่างเดียว</title>
+<meta name="description" content="PitchView — multi-view football player สำหรับ Windows ดูบอลหลายจอพร้อมกัน จัดเรียงจอเองได้ ขอบจอชนกันแบบแม่เหล็ก pop-out ไปมอนิเตอร์ที่สอง ฟรี โอเพนซอร์ส (MIT)">
+<meta property="og:title" content="PitchView — ดูฟุตบอลหลายจอพร้อมกัน">
+<meta property="og:description" content="Multi-view football player สำหรับ Windows — ฟรี โอเพนซอร์ส">
+<meta property="og:image" content="https://raw.githubusercontent.com/WhyAlwaysEng/PitchView/main/assets/icon.png">
+<style>
+  :root {
+    --bg: #0d0f0d; --surface: #141814; --surface2: #1a1f1a;
+    --border: #263026; --text: #d5e0d5; --faint: #7a8a7a;
+    --accent: #30d158; --accent-dim: rgba(48, 209, 88, 0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; line-height: 1.6; }
+  a { color: var(--accent); text-decoration: none; }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 0 20px; }
+
+  /* Nav */
+  nav { position: sticky; top: 0; z-index: 10; background: rgba(13, 15, 13, 0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+  nav .wrap { display: flex; align-items: center; gap: 18px; height: 56px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--text); font-weight: 700; }
+  .brand img { width: 22px; height: 22px; }
+  .brand b { color: var(--accent); }
+  nav .links { margin-left: auto; display: flex; gap: 16px; }
+  nav .links a { color: var(--faint); font-size: 13px; }
+  nav .links a:hover { color: var(--accent); }
+  .nav-gh { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 12px; font-size: 13px; color: var(--text); }
+  .nav-gh:hover { border-color: var(--accent); }
+
+  /* Hero */
+  .hero { text-align: center; padding: 64px 0 40px; }
+  .hero img.logo { width: 84px; height: 84px; border-radius: 20px; }
+  .hero h1 { font-size: 42px; margin: 18px 0 8px; }
+  .hero h1 b { color: var(--accent); }
+  .hero p.sub { color: var(--faint); font-size: 17px; max-width: 620px; margin: 0 auto 26px; }
+  .hero .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 12px 26px; border-radius: 10px; font-size: 15px; font-weight: 700; border: 1px solid var(--border); color: var(--text); background: var(--surface); }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #06280f; }
+  .btn.primary:hover { background: #3ee06a; }
+  .hero .meta { margin-top: 14px; font-size: 12px; color: var(--faint); }
+  .hero .meta span { margin: 0 8px; }
+
+  /* CSS mockup จอ 4 ช่อง */
+  .mock { max-width: 640px; margin: 36px auto 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+  .mock .bar { height: 30px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; padding: 0 10px; }
+  .mock .bar i { width: 9px; height: 9px; border-radius: 50%; background: #2c352c; }
+  .mock .bar .btn1 { margin-left: auto; width: 46px; height: 10px; border-radius: 5px; background: var(--accent); opacity: 0.7; }
+  .mock .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; }
+  .mock .cell { position: relative; aspect-ratio: 16/9; background: #101410; border: 1px solid var(--border); border-radius: 6px; }
+  .mock .cell::after { content: '▶'; position: absolute; inset: 0; display: grid; place-items: center; color: #2c3a2c; font-size: 20px; }
+  .mock .cell.live { border-color: var(--accent); box-shadow: 0 0 14px rgba(48, 209, 88, 0.35); }
+  .mock .cell.live::after { color: var(--accent); }
+  .mock .tag { position: absolute; left: 6px; top: 6px; font-size: 9px; color: #06280f; background: var(--accent); border-radius: 4px; padding: 1px 6px; font-weight: 700; }
+
+  /* Sections */
+  section { padding: 56px 0; }
+  section h2 { font-size: 26px; margin-bottom: 6px; text-align: center; }
+  section .lead { text-align: center; color: var(--faint); margin-bottom: 32px; font-size: 14px; }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .card:hover { border-color: var(--accent); }
+  .card h3 { font-size: 15px; margin-bottom: 6px; }
+  .card h3 .ico { margin-right: 6px; }
+  .card p { font-size: 13px; color: var(--faint); }
+
+  /* Screenshots */
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .shot { aspect-ratio: 16/9; border: 1px dashed var(--border); border-radius: 12px; display: grid; place-items: center; text-align: center; color: var(--faint); font-size: 12px; padding: 16px; background: var(--surface); }
+  .shot b { display: block; color: var(--text); font-size: 13px; margin-bottom: 4px; }
+
+  /* Shortcuts */
+  .keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; max-width: 760px; margin: 0 auto; }
+  .keyrow { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 9px 14px; font-size: 13px; }
+  kbd { background: var(--surface2); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; padding: 2px 8px; font-family: Consolas, monospace; font-size: 12px; color: var(--accent); white-space: nowrap; }
+
+  /* Download */
+  .dl { background: var(--surface); border: 1px solid var(--accent); border-radius: 16px; max-width: 620px; margin: 0 auto; padding: 34px 30px; text-align: center; box-shadow: 0 0 40px rgba(48, 209, 88, 0.12); }
+  .dl h3 { font-size: 20px; margin-bottom: 6px; }
+  .dl p { color: var(--faint); font-size: 13px; margin-bottom: 18px; }
+  .dl .req { margin-top: 14px; font-size: 12px; color: var(--faint); }
+
+  footer { border-top: 1px solid var(--border); margin-top: 40px; padding: 26px 0 34px; text-align: center; color: var(--faint); font-size: 12px; }
+  footer a { color: var(--text); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icon.png" alt="">Pitch<b>View</b></a>
+    <div class="links">
+      <a href="#features">ฟีเจอร์</a>
+      <a href="#shots">ภาพหน้าจอ</a>
+      <a href="#keys">ปุ่มลัด</a>
+      <a href="#download">ดาวน์โหลด</a>
+    </div>
+    <a class="nav-gh" href="https://github.com/WhyAlwaysEng/PitchView" target="_blank" rel="noopener">GitHub ⭐</a>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <img class="logo" src="icon.png" alt="PitchView">
+  <h1>ดูบอลหลายจอ<br><b>ในหน้าต่างเดียว</b></h1>
+  <p class="sub">PitchView — multi-view football player สำหรับ Windows จัดเรียงจอเองได้อิสระ ขอบจอชนกันแบบแม่เหล็ก ลาก pop-out ไปมอนิเตอร์ที่สอง เสียงคุบคุมครบ ฟรีทั้งหมด</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/WhyAlwaysEng/PitchView/releases/latest" target="_blank" rel="noopener">⬇️ ดาวน์โหลดเวอร์ชันล่าสุด</a>
+    <a class="btn" href="https://github.com/WhyAlwaysEng/PitchView" target="_blank" rel="noopener">ดูซอร์สโค้ดบน GitHub</a>
+  </div>
+  <div class="meta"><span>เวอร์ชัน 1.2.0</span>·<span>Windows 10 / 11 (64-bit)</span>·<span>ฟรี · MIT License</span></div>
+
+  <div class="mock" aria-hidden="true">
+    <div class="bar"><i></i><i></i><i></i><span class="btn1"></span></div>
+    <div class="grid">
+      <div class="cell live"><span class="tag">🔊 เสียง</span></div>
+      <div class="cell"></div>
+      <div class="cell"></div>
+      <div class="cell"></div>
+    </div>
+  </div>
+</header>
+
+<section id="features" class="wrap">
+  <h2>ฟีเจอร์ที่ออกแบบมาเพื่อการดูบอลทั้งวัน</h2>
+  <p class="lead">ทุกอย่างทำงานเร็ว ไม่รกสายตา และไม่ทำให้เสียบอล</p>
+  <div class="features">
+    <div class="card"><h3><span class="ico">🖥️</span>ดูหลายจอพร้อมกัน</h3><p>เลย์เอาต์ตาราง 1 / 2 / 4 / 6 / 9 จอ และโหมด Master (1 ใหญ่ + 3 เล็ก) สลับได้คลิกเดียว</p></div>
+    <div class="card"><h3><span class="ico">🎯</span>จัดเรียงเอง + แม่เหล็ก</h3><p>ลากย้าย/ย่อขยายอิสระ — ขอบจอดูดชิดกันเป๊ะ ๆ และ<b>ลากทับกันไม่ได้</b> บันทึกเป็นเลย์เอาต์พร้อมชื่อได้หลายแบบ</p></div>
+    <div class="card"><h3><span class="ico">⧉</span>Pop-out ไปจอที่สอง</h3><p>ดึงจอออกเป็นหน้าต่างแยก มีปุ่มเสียง/รีเฟรช/ตรึงของตัวเอง ใช้ session เดียวกัน ไม่ต้องล็อกอินซ้ำ</p></div>
+    <div class="card"><h3><span class="ico">🔊</span>เสียงจัดการครบ</h3><p>เปิดเสียงจอเดียวหรือหลายจอพร้อมกัน เลื่อนล้อเมาส์บนปุ่ม 🔊 ปรับเสียงจอนั้นทันที</p></div>
+    <div class="card"><h3><span class="ico">🌐</span>URL แบบเบราว์เซอร์</h3><p>ย้อนกลับ/ไปหน้าต่อจอ ช่อง URL ซิงก์ตามหน้าจริง กด Enter โหลดเลย</p></div>
+    <div class="card"><h3><span class="ico">🟢</span>ไฟสถานะต่อจอ</h3><p>เขียว = ปกติ เหลือง = กำลังโหลด แดง = พลาด — มองแวบเดียวรู้ว่าจอไหนมีปัญหา</p></div>
+    <div class="card"><h3><span class="ico">☀️</span>ปรับแต่งได้ทุกจอ</h3><p>ความสว่าง/โทนนุ่มตาต่อจอ ธีมสีเลือกเองได้ โปร่งใสหน้าต่าง และโหมดตรึงหน้าต่างลอยเหนือทุกอย่าง</p></div>
+    <div class="card"><h3><span class="ico">⏱️</span>วนรีเฟรชอัตโนมัติ</h3><p>สลับรีเฟรช/Advance ทีละจอ กันเว็บเด้ง session ระหว่างดูทั้งวัน</p></div>
+    <div class="card"><h3><span class="ico">⬆️</span>อัปเดตอัตโนมัติ</h3><p>เช็คเวอร์ชันใหม่จาก GitHub Releases ดาวน์โหลดเบื้องหลัง แจ้งมุมจอ คลิกเดียวติดตั้ง</p></div>
+  </div>
+</section>
+
+<section id="shots" class="wrap">
+  <h2>ภาพหน้าจอ</h2>
+  <p class="lead">ภาพจริงจะเพิ่มที่นี่ — ไฟล์อยู่ที่โฟลเดอร์ docs/screenshots/</p>
+  <div class="shots">
+    <div class="shot"><span><b>หน้าจอหลัก (4 จอ)</b>docs/screenshots/main-grid.png</span></div>
+    <div class="shot"><span><b>โหมดจัดเรียงเอง</b>docs/screenshots/custom-layout.png</span></div>
+    <div class="shot"><span><b>Pop-out บนจอที่สอง</b>docs/screenshots/popout.png</span></div>
+  </div>
+</section>
+
+<section id="keys" class="wrap">
+  <h2>ปุ่มลัดที่ใช้บ่อย</h2>
+  <p class="lead">กด <kbd>?</kbd> ในแอปเพื่อดูสมุดปุ่มลัดทั้งหมด</p>
+  <div class="keys">
+    <div class="keyrow"><kbd>1 – 9</kbd><span>เปิด/สลับเสียงจอนั้น</span></div>
+    <div class="keyrow"><kbd>Shift + 1 – 9</kbd><span>ขยายเดี่ยวเต็มจอ</span></div>
+    <div class="keyrow"><kbd>Tab / ← →</kbd><span>วนเสียงจอถัดไป</span></div>
+    <div class="keyrow"><kbd>M</kbd><span>ปิดเสียงทุกจอ</span></div>
+    <div class="keyrow"><kbd>H</kbd><span>ซ่อน/โชว์แถบหัวจอ</span></div>
+    <div class="keyrow"><kbd>T</kbd><span>ซ่อน/โชว์แถบเครื่องมือ</span></div>
+    <div class="keyrow"><kbd>F11</kbd><span>เต็มจอ</span></div>
+    <div class="keyrow"><kbd>Esc</kbd><span>ย่อจอ / ดึง pop-out กลับ</span></div>
+  </div>
+</section>
+
+<section id="download" class="wrap">
+  <div class="dl">
+    <h3>พร้อมดูบอลแล้วหรือยัง?</h3>
+    <p>ดาวน์โหลดฟรี ไม่ต้องสมัครอะไรทั้งนั้น</p>
+    <a class="btn primary" href="https://github.com/WhyAlwaysEng/PitchView/releases/latest" target="_blank" rel="noopener">⬇️ ดาวน์โหลดสำหรับ Windows</a>
+    <div class="req">Windows 10 / 11 (64-bit) · ติดตั้งครั้งเดียว อัปเดตเองอัตโนมัติ<br>ถ้า SmartScreen แจ้งเตือน: More info → Run anyway (แอปโอเพนซอร์ส ไม่ได้เซ็นใบรับรอง)</div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <b>PitchView</b> · สร้างด้วย Electron · <a href="https://github.com/WhyAlwaysEng/PitchView" target="_blank" rel="noopener">GitHub</a> · <a href="https://github.com/WhyAlwaysEng/PitchView/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+    <br>⚽ Made for football fans who never want to miss a match
+  </div>
+</footer>
+
+</body>
+</html>
