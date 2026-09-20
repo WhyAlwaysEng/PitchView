@@ -477,6 +477,7 @@
 
       delete boxGeometry[id];
       delete gridOrder[id];
+      delete detachedPopoutWebviews[id];
       persistGridOrder();
       persistGeometry();
 
@@ -866,6 +867,29 @@
     }
 
     // ===== Pop-out: ดึงจอออกไปเป็นหน้าต่างแยก (ลากไปมอนิเตอร์ที่ 2 ได้) =====
+    // เก็บ webview ที่ถูกถอดออกจากกริดระหว่าง pop-out (กันสตรีมเล่นซ้ำ 2 ที่พร้อมกัน)
+    const detachedPopoutWebviews = {};
+
+    function closePopoutWindow(id) {
+      ipcRenderer.send('close-popout', id);
+    }
+
+    // ดึง webview กลับเข้ากริดหลังปิดหน้าต่าง pop-out (โหลดต่อจาก URL ล่าสุดที่ sync ไว้)
+    function restorePopoutWebview(id) {
+      const stored = detachedPopoutWebviews[id];
+      if (!stored) return;
+      delete detachedPopoutWebviews[id];
+      const ph = document.getElementById('popout-ph-' + id);
+      if (ph) ph.remove();
+      const box = document.getElementById('box-' + id);
+      if (!box) return;
+      const inp = document.getElementById('input-' + id);
+      const u = (inp && inp.value.trim()) || '';
+      if (u && u !== 'about:blank' && u !== stored.el.getAttribute('src')) stored.el.setAttribute('src', u);
+      const handle = box.querySelector('.resize-handle');
+      box.insertBefore(stored.el, handle || null);
+    }
+
     function popoutStream(id) {
       const item = streams.find(s => s.id === id);
       if (!item) return;
@@ -885,6 +909,20 @@
         volume: item.volume !== undefined ? item.volume : 100
       });
 
+      // หยุดเล่นซ้ำในกริด: ถอด webview ออกจาก DOM (สตรีมต้นทางหยุด) แล้ววาง placeholder แทน
+      // คลิก placeholder / ปิดหน้าต่างแยก = ดึง webview กลับมาเล่นที่กริดเหมือนเดิม
+      const box = document.getElementById(`box-${id}`);
+      if (wv && box) {
+        detachedPopoutWebviews[id] = { el: wv };
+        wv.remove();
+        const ph = document.createElement('div');
+        ph.id = `popout-ph-${id}`;
+        ph.className = 'popout-placeholder';
+        ph.innerHTML = '<div>⧉ จอนี้ pop-out อยู่</div><small>คลิกเพื่อดึงกลับมาที่กริด</small>';
+        ph.onclick = () => closePopoutWindow(id);
+        box.insertBefore(ph, box.querySelector('.resize-handle'));
+      }
+
       // ปิดปุ่มชั่วคราวกันกดซ้ำ เปิดใหม่เมื่อหน้าต่างแยกถูกปิด
       const popBtn = document.getElementById(`popout-btn-${id}`);
       if (popBtn) {
@@ -893,8 +931,9 @@
       }
     }
 
-    // หน้าต่าง pop-out ถูกปิด → ปุ่มกลับมาใช้งานได้อีกครั้ง
+    // หน้าต่าง pop-out ถูกปิด → ดึง webview กลับเข้ากริด + ปุ่มกลับมาใช้งานได้อีกครั้ง
     ipcRenderer.on('popout-closed', (event, streamId) => {
+      restorePopoutWebview(streamId);
       const btn = document.getElementById(`popout-btn-${streamId}`);
       if (btn) {
         btn.disabled = false;

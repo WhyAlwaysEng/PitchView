@@ -179,7 +179,8 @@ ipcMain.on('popout-stream', (event, payload) => {
     webPreferences: {
       partition: 'persist:dooball_session',
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      webviewTag: true
     }
   });
 

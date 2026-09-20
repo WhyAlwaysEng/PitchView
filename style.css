@@ -664,3 +664,23 @@
       max-width: 420px;
     }
     #update-banner.show { display: block; }
+
+    /* จอที่ pop-out อยู่: ช่องในกริดแสดง placeholder แทนวิดีโอที่ถูกดึงออก (คลิก = ดึงกลับ) */
+    .popout-placeholder {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: repeating-linear-gradient(45deg, #101410, #101410 14px, #0d110d 14px, #0d110d 28px);
+      border-top: 1px dashed var(--border);
+      color: var(--faint);
+      font-size: 14px;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .popout-placeholder small { font-size: 10px; opacity: 0.8; }
+    .popout-placeholder:hover { color: var(--accent); }

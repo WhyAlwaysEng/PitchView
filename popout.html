@@ -142,7 +142,8 @@
     if (initialVol <= 0) muted = true;
 
     const wv = document.getElementById('wv');
-    wv.src = url;
+    // ต้องตั้งผ่าน setAttribute — การกำหนด .src แบบ property ก่อน webview upgrade ภายในจะหลุดหาย (จอดำ)
+    wv.setAttribute('src', url);
 
     wv.addEventListener('dom-ready', () => {
       if (initialZoom && initialZoom !== 1) wv.setZoomFactor(initialZoom);
@@ -213,7 +214,7 @@
 
     // เปลี่ยนสีเน้นของหน้าต่างนี้ (เห็นชัดตอนใช้บนพื้นหลังมืด/เกม)
     function setLocalAccent(hex) {
-      const m = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex || '');
+      const m = /^#?([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})$/i.exec(hex || '');
       if (!m) return;
       const rgb = [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
       const root = document.documentElement.style;
