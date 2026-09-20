@@ -42,6 +42,24 @@ Multi-view football player for Windows · สร้างด้วย Electron
 | `Ctrl + P` (ในหน้าต่าง pop-out) | ตรึงหน้าต่างแยก |
 | `Enter` (ช่องชื่อเลย์เอาต์) | บันทึกเลย์เอาต์ Custom |
 
+## 📸 ภาพหน้าจอ
+
+> 🚧 ยังไม่ได้แนบภาพ — วิธีเพิ่ม: จับหน้าจอแอปบันทึกไว้ที่ `docs/screenshots/` ตามชื่อไฟล์ด้านล่าง แล้วเอา comment ออกในบล็อกตัวอย่าง ภาพจะขึ้นบนหน้า GitHub ทันที
+
+ภาพที่แนะนำ:
+
+| ภาพ | บันทึกไว้ที่ |
+|---|---|
+| หน้าจอหลักแบบ 4 จอ | `docs/screenshots/main-grid.png` |
+| โหมดจัดเรียงเอง (ลากจอ ขอบชนกันแบบแม่เหล็ก) | `docs/screenshots/custom-layout.png` |
+| หน้าต่าง pop-out บนมอนิเตอร์ที่สอง | `docs/screenshots/popout.png` |
+
+<!-- ตัวอย่างมาร์กอัป — เอา comment ออกหลังใส่ไฟล์ภาพแล้ว
+| ![หน้าจอหลัก](docs/screenshots/main-grid.png) | ![จัดเรียงเอง](docs/screenshots/custom-layout.png) | ![Pop-out](docs/screenshots/popout.png) |
+|:---:|:---:|:---:|
+| หน้าจอหลัก (4 จอ) | จัดเรียงเอง | Pop-out ไปจอที่สอง |
+-->
+
 ## 📥 ดาวน์โหลด / ติดตั้ง
 
 1. ไปที่หน้า **[Releases](https://github.com/WhyAlwaysEng/PitchView/releases)** แล้วดาวน์โหลด `PitchView Setup x.x.x.exe`
