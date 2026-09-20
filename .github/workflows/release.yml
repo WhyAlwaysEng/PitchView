@@ -1,0 +1,36 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      # รอบปกติ (push บน main): แค่ build ยืนยันว่าโค้ดสมบูรณ์ — badge สถานะ build ชี้มาที่นี่
+      - name: Build (CI check)
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        run: npm run dist
+
+      # รอบปล่อยเวอร์ชัน (push tag v*): build แล้วอัปโหลดตัวติดตั้ง + latest.yml + blockmap ขึ้น GitHub Release อัตโนมัติ
+      - name: Build & Publish Release
+        if: "startsWith(github.ref, 'refs/tags/v')"
+        run: npm run dist -- --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
