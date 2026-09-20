@@ -19,9 +19,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      # กันลืม bump version: tag v* ต้องตรงกับ version ใน package.json เสมอ
+      - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag v$TAG ไม่ตรงกับ version ใน package.json ($PKG) — แก้ version ให้ตรงก่อน"
+            exit 1
+          fi
 
       # รอบปกติ (push บน main): แค่ build ยืนยันว่าโค้ดสมบูรณ์ — badge สถานะ build ชี้มาที่นี่
       - name: Build (CI check)
