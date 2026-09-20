@@ -71,8 +71,10 @@
 
   /* Screenshots */
   .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-  .shot { aspect-ratio: 16/9; border: 1px dashed var(--border); border-radius: 12px; display: grid; place-items: center; text-align: center; color: var(--faint); font-size: 12px; padding: 16px; background: var(--surface); }
-  .shot b { display: block; color: var(--text); font-size: 13px; margin-bottom: 4px; }
+  .shot { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .shot:hover { border-color: var(--accent); }
+  .shot img { width: 100%; display: block; }
+  .shot figcaption { padding: 8px 12px; font-size: 12px; color: var(--faint); border-top: 1px solid var(--border); text-align: center; }
 
   /* Shortcuts */
   .keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; max-width: 760px; margin: 0 auto; }
@@ -145,9 +147,9 @@
   <h2>ภาพหน้าจอ</h2>
   <p class="lead">ภาพจริงจะเพิ่มที่นี่ — ไฟล์อยู่ที่โฟลเดอร์ docs/screenshots/</p>
   <div class="shots">
-    <div class="shot"><span><b>หน้าจอหลัก (4 จอ)</b>docs/screenshots/main-grid.png</span></div>
-    <div class="shot"><span><b>โหมดจัดเรียงเอง</b>docs/screenshots/custom-layout.png</span></div>
-    <div class="shot"><span><b>Pop-out บนจอที่สอง</b>docs/screenshots/popout.png</span></div>
+    <figure class="shot"><img src="screenshots/main-grid.png" alt="หน้าจอหลัก 4 จอ" loading="lazy"><figcaption>หน้าจอหลัก 4 จอ — จอที่เปิดเสียงมีขอบเรืองแสง</figcaption></figure>
+    <figure class="shot"><img src="screenshots/custom-layout.png" alt="โหมดจัดเรียงเอง" loading="lazy"><figcaption>จัดเรียงเอง — ขอบจอชนกันแบบแม่เหล็ก ลากทับกันไม่ได้</figcaption></figure>
+    <figure class="shot"><img src="screenshots/shortcuts.png" alt="สมุดปุ่มลัด" loading="lazy"><figcaption>สมุดปุ่มลัด — กด <kbd>?</kbd> ในแอป</figcaption></figure>
   </div>
 </section>
 

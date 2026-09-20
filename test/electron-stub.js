@@ -35,6 +35,16 @@ window.alert = function (msg) { window.__alerts.push(String(msg)); };
 function patchWebview(el) {
   if (el.__patched) return;
   el.__patched = true;
+  // หน้าตาคล้ายวิดีโอ เพื่อให้จับภาพหน้าจอ/ทดสอบแล้วเห็นขอบเขตชัด (webview จริงใน Electron ไม่ผ่านทางนี้)
+  if (!el.__viz) {
+    el.style.position = 'relative';
+    el.style.overflow = 'hidden';
+    var viz = document.createElement('div');
+    viz.style.cssText = 'position:absolute;inset:0;display:grid;place-items:center;font-size:32px;color:rgba(48,209,88,0.30);pointer-events:none;background:radial-gradient(ellipse at center,#15201a 0%,#0a0e0a 75%);';
+    viz.textContent = '▶';
+    el.appendChild(viz);
+    el.__viz = viz;
+  }
   var state = {
     hist: [el.getAttribute('src') || 'about:blank'],
     pos: 0,

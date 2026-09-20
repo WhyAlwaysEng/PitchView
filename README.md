@@ -53,21 +53,11 @@ Multi-view football player for Windows · สร้างด้วย Electron
 
 ## 📸 ภาพหน้าจอ
 
-> 🚧 ยังไม่ได้แนบภาพ — วิธีเพิ่ม: จับหน้าจอแอปบันทึกไว้ที่ `docs/screenshots/` ตามชื่อไฟล์ด้านล่าง แล้วเอา comment ออกในบล็อกตัวอย่าง ภาพจะขึ้นบนหน้า GitHub ทันที
-
-ภาพที่แนะนำ:
-
-| ภาพ | บันทึกไว้ที่ |
-|---|---|
-| หน้าจอหลักแบบ 4 จอ | `docs/screenshots/main-grid.png` |
-| โหมดจัดเรียงเอง (ลากจอ ขอบชนกันแบบแม่เหล็ก) | `docs/screenshots/custom-layout.png` |
-| หน้าต่าง pop-out บนมอนิเตอร์ที่สอง | `docs/screenshots/popout.png` |
-
-<!-- ตัวอย่างมาร์กอัป — เอา comment ออกหลังใส่ไฟล์ภาพแล้ว
-| ![หน้าจอหลัก](docs/screenshots/main-grid.png) | ![จัดเรียงเอง](docs/screenshots/custom-layout.png) | ![Pop-out](docs/screenshots/popout.png) |
+| ![หน้าจอหลัก](docs/screenshots/main-grid.png) | ![จัดเรียงเอง](docs/screenshots/custom-layout.png) | ![สมุดปุ่มลัด](docs/screenshots/shortcuts.png) |
 |:---:|:---:|:---:|
-| หน้าจอหลัก (4 จอ) | จัดเรียงเอง | Pop-out ไปจอที่สอง |
--->
+| **หน้าจอหลัก 4 จอ** — จอที่เปิดเสียงมีขอบเรืองแสง | **จัดเรียงเอง** — ขอบจอชนกันแบบแม่เหล็ก ลากทับกันไม่ได้ | **สมุดปุ่มลัด** — กด `?` ในแอป |
+
+*(จับภาพใหม่ได้ด้วย `node test/capture-shots.js` — สคริปต์จำลองสถานะใช้งานจริงแล้วเซฟลง `docs/screenshots/`)*
 
 ## 📥 ดาวน์โหลด / ติดตั้ง
 
