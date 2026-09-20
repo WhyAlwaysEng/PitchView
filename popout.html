@@ -119,9 +119,7 @@
   </div>
 
   <webview
-    id="wv"
-    src="about:blank"
-    partition="persist:dooball_session"
+    data-popout-wv
     allowpopups="false"
     nativeWindowOpen="true">
   </webview>
@@ -132,6 +130,7 @@
     const params = new URLSearchParams(location.search);
     const streamId = Number(params.get('id'));
     const url = params.get('url') || 'about:blank';
+    const popoutPartition = params.get('session') || 'persist:dooball_session';
     const initialVol = Number(params.get('vol') || 100);
     const initialZoom = Number(params.get('zoom') || 1);
 
@@ -141,8 +140,14 @@
     // หน้าต่างแยกเริ่มต้นแบบปิดเสียงถ้าปริมาณเสียงที่ส่งมาเป็น 0
     if (initialVol <= 0) muted = true;
 
-    const wv = document.getElementById('wv');
-    // ต้องตั้งผ่าน setAttribute — การกำหนด .src แบบ property ก่อน webview upgrade ภายในจะหลุดหาย (จอดำ)
+    // เว็บวิวสร้างใหม่ด้วย JS เพื่อแนบ partition "ก่อน" ใส่ src (หาตัวจาก data attribute — ไม่ใช้ id ตอนแรก)
+    const wv = document.querySelector('webview[data-popout-wv]');
+    // ต้องแนบ partition "ก่อน" ใส่ src เสมอ (เปลี่ยน partition หลังลง DOM ไม่ได้ — ต้องลบออกแล้วใส่กลับ)
+    // และต้องตั้ง src ผ่าน setAttribute — กำหนด .src แบบ property ก่อน webview upgrade ภายในจะหลุดหาย (จอดำ)
+    wv.remove();
+    wv.setAttribute('partition', popoutPartition);
+    wv.setAttribute('id', 'wv');
+    document.body.appendChild(wv);
     wv.setAttribute('src', url);
 
     wv.addEventListener('dom-ready', () => {

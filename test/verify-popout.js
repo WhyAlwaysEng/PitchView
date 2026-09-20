@@ -8,6 +8,7 @@
 // ใช้: node test/verify-popout.js   (จะเห็นหน้าต่างแอปเด้งขึ้นชั่วครู่)
 'use strict';
 
+const http = require('http');
 const path = require('path');
 const { _electron } = require('playwright-core');
 
@@ -15,6 +16,13 @@ const ROOT = path.join(__dirname, '..');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
+  // เซิร์ฟเวอร์จำลองในเครื่อง — ทดสอบ watchdog หน้า login โดยไม่พึ่งเน็ต/ไม่ช้า
+  const simServer = http.createServer((req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.end('<html><body>login page test</body></html>');
+  });
+  await new Promise((r) => simServer.listen(18901, '127.0.0.1', r));
+
   console.log('🚀 เปิดแอป Electron จริง...');
   const app = await _electron.launch({
     executablePath: require('electron'),
@@ -42,6 +50,33 @@ async function main() {
       { timeout: 20000 }
     );
     console.log('✅ จอ 1 โหลดสตรีมในกริดได้');
+
+    // ★ ทดสอบ session แยกต่อจอ (แก้เด้ง login กลางแข่ง)
+    const p1 = await mainWin.evaluate(() => document.getElementById('wv-1').getAttribute('partition'));
+    if (p1 !== 'persist:dooball_1') throw new Error('จอ 1 ใช้ session ผิด: ' + p1);
+    console.log('✅ จอ 1 ใช้ session ของตัวเอง (' + p1 + ')');
+
+    await mainWin.evaluate(() => {
+      const el = document.getElementById('input-2');
+      el.value = 'https://sport.example.com/live/test2';
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    });
+    await mainWin.waitForFunction(
+      () => {
+        const wv = document.getElementById('wv-2');
+        try { return wv && wv.getURL() && wv.getURL().includes('sport.example.com'); } catch (e) { return false; }
+      },
+      null,
+      { timeout: 20000 }
+    );
+    const p2 = await mainWin.evaluate(() => document.getElementById('wv-2').getAttribute('partition'));
+    if (p2 !== 'persist:dooball_2') throw new Error('จอ 2 ใช้ session ผิด: ' + p2);
+    const wcid = await mainWin.evaluate(() => {
+      try { return { a: document.getElementById('wv-1').getWebContentsId(), b: document.getElementById('wv-2').getWebContentsId() }; }
+      catch (e) { return { a: null, b: null }; }
+    });
+    if (wcid.a && wcid.b && wcid.a === wcid.b) throw new Error('จอ 1-2 อยู่เว็บคอนเทนต์เดียวกัน (session ไม่ได้แยกจริง)');
+    console.log('✅ จอ 2 ใช้ session แยกขาด (' + p2 + ' — คนละเว็บคอนเทนต์กับจอ 1)');
 
     // กดปุ่ม pop-out
     await mainWin.click('#popout-btn-1');
@@ -73,6 +108,11 @@ async function main() {
       };
     });
     console.log('   diag:', JSON.stringify(diag, null, 1));
+
+    // ★ pop-out ต้องใช้ session เดียวกับจอต้นทาง (login/cookie ติดตามไปเอง)
+    const popPart = await popWin.evaluate(() => document.getElementById('wv').getAttribute('partition'));
+    if (popPart !== 'persist:dooball_1') throw new Error('หน้าต่างแยกใช้ session ผิด: ' + popPart + ' (ต้องเป็นของจอ 1)');
+    console.log('✅ หน้าต่างแยกใช้ session เดียวกับจอต้นทาง (' + popPart + ')');
 
     // 1) webview ในหน้าต่างแยกต้องมีชีวิต (มี method ของ webview จริง) และโหลด URL ถูก
     await popWin.waitForFunction(
@@ -113,9 +153,37 @@ async function main() {
     if (wins.length > 0) throw new Error('หน้าต่างแยกยังไม่ปิด');
     console.log('✅ คลิก placeholder ดึงจอกลับกริดได้ (webview กลับมา + หน้าต่างแยกปิดแล้ว)');
 
+    // 5) ★ watchdog ห้ามรีโหลดหน้า login (อาการ "เข้าแข่งอยู่เด้ง login ใหม่" อีกจุด)
+    await mainWin.evaluate(() => {
+      const el = document.getElementById('input-1');
+      el.value = 'http://127.0.0.1:18901/login';
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    });
+    await mainWin.waitForFunction(
+      () => {
+        const wv = document.getElementById('wv-1');
+        try { return wv && typeof wv.getURL === 'function' && wv.getURL().includes('/login'); } catch (e) { return false; }
+      },
+      null,
+      { timeout: 20000 }
+    );
+    await mainWin.evaluate(() => {
+      window.__navCount = 0;
+      document.getElementById('wv-1').addEventListener('did-navigate', () => { window.__navCount++; });
+    });
+    await sleep(9000);
+    const wd = await mainWin.evaluate(() => ({
+      nav: window.__navCount,
+      alive: !!document.getElementById('wv-1'),
+      url: (() => { try { return document.getElementById('wv-1').getURL(); } catch (e) { return null; } })()
+    }));
+    if (!wd.alive || wd.nav > 0) throw new Error('watchdog รีโหลดหน้า login! ' + JSON.stringify(wd));
+    console.log('✅ watchdog เฝ้าดู 9 วิ — ไม่รีโหลดหน้า login เด็ดขาด (url คงเดิม: ' + wd.url + ')');
+
     console.log('\n===== ผ่านทั้งหมด: pop-out ใช้งานได้ครบวงจร ✅ =====');
   } finally {
-    await app.close();
+    try { await app.close(); } catch (e) {}
+    try { simServer.close(); } catch (e) {}
   }
 }
 

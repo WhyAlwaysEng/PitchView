@@ -112,13 +112,36 @@ ipcMain.on('open-login-window', (event, targetUrl) => {
     }
   });
 
+  // ★ สำคัญ: ตั้ง UA ให้หน้าต่าง login เท่ากับ webview ทุกจอพอดี
+  // ถ้า UA ต่างกัน เว็บ/Cloudflare จะมองเป็นคนละอุปกรณ์ ทำให้ session ไม่น่าเชื่อถือและเด้ง login กลางแข่ง
+  loginWin.webContents.setUserAgent(CHROME_UA);
   loginWin.loadURL(url).catch(err => console.error(err));
 
   loginWin.webContents.setWindowOpenHandler(() => {
     return { action: 'allow' };
   });
 
-  loginWin.on('closed', () => {
+  loginWin.on('closed', async () => {
+    // ★ ล็อกอินครั้งเดียวใช้ได้ทุกจอ: คัดลอก cookie ที่เพิ่ง login ไปทุก session ของจอ
+    // จอทุกใบเลยใช้บัญชีเดียวกันโดยไม่ต้อง login ซ้ำ และ session แยกกันจึงเด้งทีเดียวไม่ลากทั้งแอป
+    try {
+      const from = session.fromPartition('persist:dooball_session');
+      const cookies = await from.cookies.get({});
+      const targets = ['persist:dooball_1', 'persist:dooball_2', 'persist:dooball_3', 'persist:dooball_4'];
+      for (const name of targets) {
+        const to = session.fromPartition(name);
+        for (const c of cookies) {
+          try {
+            await to.cookies.set({
+              url: (c.secure ? 'https://' : 'http://') + c.domain.replace(/^./, '') + (c.path || '/'),
+              name: c.name, value: c.value, domain: c.domain, path: c.path,
+              secure: c.secure, httpOnly: c.httpOnly,
+              expirationDate: c.expirationDate
+            });
+          } catch (err) {}
+        }
+      }
+    } catch (err) {}
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('login-window-closed');
     }
@@ -152,8 +175,9 @@ ipcMain.on('set-window-opacity', (event, value) => {
 const popoutWins = {}; // streamId -> { win, pinned }
 
 ipcMain.on('popout-stream', (event, payload) => {
-  const { streamId, url, zoom, volume } = payload || {};
+  const { streamId, url, zoom, volume, session } = payload || {};
   if (!url) return;
+  const popoutPartition = session || 'persist:dooball_session';
 
   // ถ้ามีหน้าต่างของจอนี้ค้างอยู่แล้ว ให้ปิดตัวเก่าก่อน
   if (popoutWins[streamId] && !popoutWins[streamId].win.isDestroyed()) {
@@ -177,7 +201,7 @@ ipcMain.on('popout-stream', (event, payload) => {
     title: 'PitchView — Pop-out',
     icon: path.join(__dirname, 'assets/icon.ico'),
     webPreferences: {
-      partition: 'persist:dooball_session',
+      partition: popoutPartition,
       nodeIntegration: true,
       contextIsolation: false,
       webviewTag: true
@@ -187,12 +211,13 @@ ipcMain.on('popout-stream', (event, payload) => {
   popoutWins[streamId] = { win: win, pinned: false };
 
   // โหลดหน้าควบคุมของเรา (มีแถบปุ่มเสียง/รีเฟรช/ตรึง/ปิด) แล้วฝังสตรีมใน webview ข้างใน
-  // แชร์ partition เดิม จึงใช้ login ร่วมกับทุกจอเหมือนเดิม
+  // ส่ง session ของจอต้นทางไปด้วย → webview ข้างในใช้ login/cookie เดียวกับจอนั้นพอดี
   const popoutUrl = 'file://' + path.join(__dirname, 'popout.html') +
     '?id=' + streamId +
     '&url=' + encodeURIComponent(url) +
     '&vol=' + (volume !== undefined ? volume : 100) +
-    '&zoom=' + (zoom || 1);
+    '&zoom=' + (zoom || 1) +
+    '&session=' + encodeURIComponent(popoutPartition);
   win.loadURL(popoutUrl).catch(err => console.error('popout load fail:', err));
 
   // Ctrl+P ยังสลับการตรึงได้เหมือนเดิม (มีปุ่มในหน้าต่างให้กดแล้ว ไม่ต้องจำคีย์ลัดก็ได้)
@@ -310,6 +335,27 @@ function setupAutoUpdate() {
 
 ipcMain.on('install-update', () => {
   try { autoUpdater.quitAndInstall(false, true); } catch (e) { /* ignore */ }
+});
+
+// คัดลอก cookie ทั้งหมดจาก session หนึ่งไปอีก session (ใช้ตอน login เสร็จ เพื่อให้ทุกจอใช้บัญชีเดียวกัน)
+ipcMain.handle('session-copy-cookies', async (event, payload) => {
+  try {
+    const from = session.fromPartition(payload.from);
+    const to = session.fromPartition(payload.to);
+    if (payload.from === payload.to) return true;
+    const cookies = await from.cookies.get({});
+    for (const c of cookies) {
+      try {
+        await to.cookies.set({
+          url: (c.secure ? 'https://' : 'http://') + c.domain.replace(/^./, '') + (c.path || '/'),
+          name: c.name, value: c.value, domain: c.domain, path: c.path,
+          secure: c.secure, httpOnly: c.httpOnly,
+          expirationDate: c.expirationDate
+        });
+      } catch (err) {}
+    }
+    return true;
+  } catch (err) { return false; }
 });
 
 // บล็อก Popup ไม่ให้เด้งในหน้าหลัก

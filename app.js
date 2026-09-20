@@ -1,11 +1,13 @@
     const { ipcRenderer } = require('electron');
 
     let streams = JSON.parse(localStorage.getItem('saved_streams')) || [
-      { id: 1, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false },
-      { id: 2, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false },
-      { id: 3, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false },
-      { id: 4, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false }
+      { id: 1, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false, session: 'persist:dooball_1' },
+      { id: 2, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false, session: 'persist:dooball_2' },
+      { id: 3, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false, session: 'persist:dooball_3' },
+      { id: 4, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false, session: 'persist:dooball_4' }
     ];
+    // อัปเกรดข้อมูลเก่า: จอที่ยังไม่มี session ของตัวเอง ให้ตามเลขจอ (login ครั้งเดียวจะคัดลอก cookie ให้ทุกจอเอง)
+    streams.forEach(s => { if (!s.session || !/^persist:dooball_[0-9]+$/.test(s.session)) s.session = 'persist:dooball_' + s.id; });
     let nextId = streams.length ? Math.max(...streams.map(s => s.id)) + 1 : 1;
     let activeAudioId = null;
     let maximizedId = null;
@@ -153,8 +155,12 @@
       ipcRenderer.send('open-login-window', targetUrl);
     }
 
+    // ล็อกอินครั้งเดียว ใช้ได้ทุกจอ: คัดลอก cookie จาก session ของหน้าต่าง login ไปทุก session ของจอ
     ipcRenderer.on('login-window-closed', () => {
-      streams.forEach(s => reloadUrl(s.id));
+      const sess = streams.map(s => s.session || 'persist:dooball_session');
+      Promise.all(sess.map(name => ipcRenderer.invoke('session-copy-cookies', { from: 'persist:dooball_session', to: name })))
+        .catch(() => {})
+        .then(() => streams.forEach(s => reloadUrl(s.id)));
     });
 
     // 7. Context Menu & Outside Click Handling
@@ -240,7 +246,10 @@
             const isEnabled = ${item?.freezeDetect !== false};
             const video = document.querySelector('video');
 
-            if (video) {
+            // ถ้าหน้านี้ยังไม่ใช่หน้าดูบอล (login/register/about:blank) ห้ามแตะ video และห้าม reload เด็ดขาด
+            if (/(//|)(log-?in|log-in|signin|sign-in|register|signup|sign-up)(|-|_|.)/i.test(location.href) || location.href === 'about:blank') {
+              lastTime = -1; freezeCount = 0;
+            } else if (video) {
               if (video.paused && !video.ended) {
                 video.play().catch(() => {});
               }
@@ -374,7 +383,7 @@
         <webview 
           id="wv-${stream.id}" 
           src="${stream.url || 'about:blank'}" 
-          partition="persist:dooball_session"
+          partition="${stream.session || 'persist:dooball_session'}"
           allowpopups="false" 
           nativeWindowOpen="true"
           nodeintegration="true">
@@ -384,6 +393,8 @@
       `;
 
       const wv = box.querySelector('webview');
+      // จอที่ pop-out อยู่ ห้ามรีโหลด/โหลดซ้ำเด็ดขาด (webview ถูกถอดไปแล้ว)
+      const isPopoutActive = () => !!detachedPopoutWebviews[stream.id];
       wv.addEventListener('dom-ready', () => {
         const isAudible = (multiAudioMode && multiAudioSet.has(stream.id)) || activeAudioId === stream.id;
         wv.setAudioMuted(!isAudible);
@@ -453,7 +464,7 @@
     }
 
     function addStreamSlot() {
-      const newStream = { id: nextId++, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false };
+      const newStream = { id: nextId++, name: '', url: '', volume: 100, zoom: 1.0, freezeDetect: true, headerHidden: false, session: 'persist:dooball_' + nextId };
       streams.push(newStream);
       
       const container = document.getElementById('grid-container');
@@ -900,13 +911,17 @@
         return;
       }
       const wv = document.getElementById(`wv-${id}`);
+      // จำ partition ของจอนี้ไว้ส่งให้หน้าต่างแยก (อ่านก่อนถอด webview ออกจาก DOM)
+      let part = 'persist:dooball_session';
+      try { if (wv && wv.getAttribute('partition')) part = wv.getAttribute('partition'); } catch (err) {}
       // ใช้ URL ปัจจุบันจริงของหน้า (เผื่อผู้ใช้เดินทางไปหน้าอื่นแล้ว) แทนค่าเก่าในช่อง
       try { if (wv && wv.getURL() && wv.getURL() !== 'about:blank') url = wv.getURL(); } catch (err) {}
       ipcRenderer.send('popout-stream', {
         streamId: id,
         url: url,
         zoom: (wv && typeof wv.getZoomFactor === 'function') ? wv.getZoomFactor() : 1.0,
-        volume: item.volume !== undefined ? item.volume : 100
+        volume: item.volume !== undefined ? item.volume : 100,
+        session: part
       });
 
       // หยุดเล่นซ้ำในกริด: ถอด webview ออกจาก DOM (สตรีมต้นทางหยุด) แล้ววาง placeholder แทน
