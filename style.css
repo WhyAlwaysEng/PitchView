@@ -1,0 +1,666 @@
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0c0e0c;
+      --surface: #141714;
+      --surface2: #1a1e1a;
+      --border: #242a24;
+      --border-soft: #1d221d;
+      --text: #e8eae8;
+      --dim: #9aa39a;
+      --faint: #6b736b;
+      --accent: #30d158;
+      --accent-soft: rgba(48, 209, 88, 0.14);
+      --accent-rgb: 48, 209, 88;
+      --danger: #ff5a5f;
+    }
+    :root {
+      --accent: #30d158;
+      --accent-soft: rgba(48, 209, 88, 0.14);
+      --accent-rgb: 48, 209, 88;
+      --danger: #ff5a5f;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+    
+    /* Top Toolbar */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-soft);
+      z-index: 100;
+      flex-wrap: wrap;
+      transition: all 0.2s ease;
+    }
+    .toolbar.hidden-toolbar {
+      display: none !important;
+    }
+
+    /* แบรนด์แอป */
+    .app-brand { display: flex; align-items: center; gap: 8px; margin-right: 8px; }
+    .app-brand img { width: 20px; height: 20px; border-radius: 6px; display: block; }
+    .app-brand span { font-size: 13px; font-weight: 700; letter-spacing: 0.4px; color: var(--text); }
+    .app-brand span b { color: var(--accent); font-weight: 700; }
+    
+    /* แถบ Hover ด้านบนสุดสำหรับนำ Toolbar กลับมา */
+    #toolbar-hover-trigger {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 6px;
+      z-index: 99999;
+      background: transparent;
+    }
+    #toolbar-hover-trigger:hover {
+      background: var(--accent-soft);
+    }
+    body.toolbar-is-hidden #toolbar-hover-trigger {
+      display: block;
+    }
+
+    .toolbar label { font-size: 11px; color: var(--dim); font-weight: 600; letter-spacing: 0.3px; }
+    .toolbar button, .toolbar select {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 11.5px;
+      font-weight: 500;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .toolbar button:hover, .toolbar select:hover { background: var(--surface2); border-color: #2e352e; }
+    .toolbar button.primary { background: var(--accent); border-color: var(--accent); color: #06280f; font-weight: 700; }
+    .toolbar button.btn-fullscreen { color: var(--accent); border-color: var(--border); }
+    .toolbar button#btn-pin.pinned-on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+    .stream-header button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .toolbar button.btn-advance-all { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 700; }
+    .toolbar button.btn-advance-all:hover { background: rgba(48, 209, 88, 0.22); border-color: var(--accent); }
+
+    /* Staggered Auto-Cycle Toolbar Group */
+    .cycle-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--accent-soft);
+      padding: 3px 8px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+    }
+    .cycle-group select {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .cycle-status-badge {
+      font-size: 10px;
+      color: var(--accent);
+      opacity: 0.9;
+      white-space: nowrap;
+    }
+
+    /* Real-time System Monitor Badge */
+    .system-stats {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: 1px solid var(--border-soft);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+      color: var(--dim);
+    }
+    .system-stats span.cpu-val { color: var(--accent); }
+    .system-stats span.ram-val { color: var(--text); }
+
+    /* Collapsible Login Area */
+    .login-group {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: transparent;
+      padding: 3px 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    .login-group input {
+      display: none;
+      width: 170px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      outline: none;
+    }
+    .login-group input:focus { border-color: var(--accent); }
+    .login-group .btn-login-close {
+      display: none;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--faint);
+      padding: 3px 6px;
+      font-size: 10px;
+    }
+    .login-group .btn-login-close:hover {
+      background: rgba(255, 90, 95, 0.14);
+      border-color: transparent;
+      color: var(--danger);
+    }
+    .login-group.expanded input,
+    .login-group.expanded .btn-login-close {
+      display: inline-block;
+    }
+    .login-group button.btn-login-main {
+      background: transparent;
+      border-color: transparent;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .login-group button.btn-login-main:hover { background: var(--accent-soft); border-color: transparent; }
+    
+    /* Main Grid */
+    #grid-container {
+      flex: 1;
+      display: grid;
+      gap: 6px;
+      padding: 6px;
+      background: var(--bg);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Grid Layout Modes */
+    .layout-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .layout-2 { grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; }
+    .layout-4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+    .layout-6 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+    .layout-9 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+
+    /* Custom Free-Layout Mode (จัดเรียงจอเอง) */
+    #grid-container.mode-custom { display: block; }
+    #grid-container.mode-custom .stream-box { position: absolute; }
+    .stream-box .resize-handle { display: none; }
+    /* ปุ่ม ⠿ ใช้ได้ทั้งโหมดตาราง (ลากสลับจอ) และโหมดจัดเรียงเอง (ลากย้าย) */
+    .stream-box .move-grip {
+      display: inline-block;
+      padding: 3px 6px;
+      font-size: 10px;
+      color: var(--faint);
+      cursor: grab;
+      user-select: none;
+    }
+    .stream-box .move-grip:hover { color: var(--accent); }
+    body.grid-locked:not(.custom-mode) .stream-box .move-grip { opacity: 0.35; cursor: not-allowed; }
+    #grid-container.mode-custom .move-grip {
+      display: inline-block;
+      background: var(--accent-soft);
+      border-color: transparent;
+      color: var(--accent);
+      font-weight: bold;
+      cursor: move;
+      user-select: none;
+    }
+    #grid-container.mode-custom .resize-handle {
+      display: block;
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 18px;
+      height: 18px;
+      cursor: nwse-resize;
+      z-index: 60;
+      background: linear-gradient(135deg, transparent 50%, var(--accent) 50%);
+      opacity: 0.55;
+    }
+    #grid-container.mode-custom .resize-handle:hover { opacity: 1; }
+
+    /* กลุ่มบันทึกเลย์เอาต์ Custom บน toolbar (แสดงเฉพาะโหมดจัดเรียงเอง) */
+    #custom-save-group { display: none; align-items: center; gap: 4px; }
+    body.custom-mode #custom-save-group { display: inline-flex; }
+    #custom-save-group #cl-new-name {
+      width: 120px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      outline: none;
+    }
+    #custom-save-group #cl-new-name:focus { border-color: var(--accent); }
+    #custom-save-group .cl-save {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: #06280f;
+      font-size: 12px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    #custom-save-group .cl-save:hover { background: #3ee06a; }
+    #custom-save-group #btn-del-preset {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--faint);
+      font-size: 12px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #custom-save-group #btn-del-preset:hover { background: rgba(255, 90, 95, 0.14); color: var(--danger); }
+
+    /* Toast คำใบ้เมื่อเข้าโหมดจัดเรียงเอง (โชว์ครั้งแรกของเซสชัน) */
+    #custom-hint-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(8px);
+      z-index: 60000;
+      background: rgba(20, 23, 20, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 12px;
+      padding: 9px 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.3s;
+      white-space: nowrap;
+    }
+    #custom-hint-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* จอที่ลากแล้วขอบชน/แม่เหล็กเข้าที่ = เรืองแสง */
+    .stream-box.snapping {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(62, 224, 106, 0.35);
+    }
+
+    /* Overlay ครอบจอระหว่างลาก กันเหตุการณ์เมาส์โดน webview กลืน */
+    #drag-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 99998;
+      background: transparent;
+      cursor: move;
+    }
+    #drag-overlay.resizing { cursor: nwse-resize; }
+    
+    /* Master-Sub Layout */
+    .layout-master {
+      grid-template-columns: 2fr 1fr;
+      grid-template-rows: repeat(3, 1fr);
+    }
+    .layout-master .stream-box:first-child {
+      grid-row: 1 / span 3;
+    }
+
+    /* Stream Card */
+    .stream-box {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .stream-box.active-audio {
+      border: 1px solid var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(48, 209, 88, 0.18);
+    }
+    .stream-box.cycle-refreshing {
+      border: 1px solid #64b5f6;
+      box-shadow: 0 0 0 1px #64b5f6, 0 0 14px rgba(100, 181, 246, 0.18);
+    }
+    
+    /* Quick Maximize Mode */
+    .stream-box.is-maximized {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 9999 !important;
+      border: none !important;
+      border-radius: 0 !important;
+    }
+
+    /* Stream Header Bar */
+    .stream-header {
+      display: flex;
+      gap: 4px;
+      padding: 5px 7px;
+      background: var(--surface2);
+      align-items: center;
+      flex-wrap: nowrap;
+      z-index: 10;
+    }
+    .stream-header.hidden-header {
+      display: none !important;
+    }
+
+    /* ช่องใส่หมายเหตุ / ชื่อคู่บอล */
+    .stream-header input.name-input {
+      width: 95px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-weight: 600;
+      padding: 4px 7px;
+      border-radius: 6px;
+      font-size: 11px;
+      outline: none;
+    }
+    .stream-header input.name-input:focus {
+      border-color: var(--accent);
+      background: #101410;
+    }
+
+    .stream-header input.url-input {
+      flex: 1;
+      min-width: 60px;
+      background: var(--bg);
+      border: 1px solid var(--border-soft);
+      color: var(--dim);
+      padding: 4px 7px;
+      border-radius: 6px;
+      font-size: 11px;
+      outline: none;
+    }
+    .stream-header input.url-input:focus { border-color: var(--accent); color: var(--text); }
+
+    /* ป้ายชื่อคู่บอลลอยเมื่อซ่อนแถบ */
+    .match-tag {
+      display: none;
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 40;
+      background: rgba(12, 14, 12, 0.85);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+    }
+    .stream-box.header-is-hidden .match-tag.has-text {
+      display: block;
+    }
+
+    /* ปุ่มลอยแสดงแถบ */
+    .btn-unhide-float {
+      display: none;
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 50;
+      background: rgba(20, 21, 30, 0.85);
+      border: 1px solid #36394c;
+      color: #fff;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      opacity: 0.35;
+      transition: opacity 0.2s, background 0.2s;
+    }
+    .btn-unhide-float:hover {
+      opacity: 1;
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+    .stream-box.header-is-hidden .btn-unhide-float {
+      display: block;
+    }
+
+    .stream-header button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      padding: 4px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .stream-header button:hover { background: var(--surface2); color: var(--text); border-color: #2e352e; }
+    .stream-header button.btn-advance { color: var(--accent); border-color: transparent; background: var(--accent-soft); font-weight: 600; }
+    .stream-header button.unmuted { background: var(--accent); border-color: var(--accent); color: #06280f; font-weight: 700; }
+    .stream-header button.btn-freeze.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+    .stream-header button.btn-del { color: var(--danger); border-color: transparent; }
+    .stream-header button.btn-del:hover { background: rgba(255, 90, 95, 0.14); border-color: transparent; color: var(--danger); }
+
+    /* Zoom Stepper Control */
+    .zoom-control, .volume-control {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--bg);
+      padding: 2px 4px;
+      border-radius: 6px;
+      border: 1px solid var(--border-soft);
+    }
+    .zoom-control span { font-size: 10px; min-width: 32px; text-align: center; color: var(--dim); }
+    .zoom-control button { padding: 1px 5px; font-size: 10px; }
+
+    /* Volume Slider */
+    .volume-control input[type=range] { width: 45px; cursor: pointer; accent-color: var(--accent); }
+    .volume-control span { font-size: 10px; min-width: 24px; text-align: center; color: #aaa; }
+
+    webview {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+
+    /* Context Menu */
+    #custom-context-menu {
+      display: none;
+      position: fixed;
+      z-index: 100000;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+      padding: 5px 0;
+      min-width: 190px;
+      overflow: hidden;
+    }
+    #custom-context-menu div {
+      padding: 7px 12px;
+      font-size: 12px;
+      color: #e0e0e0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #custom-context-menu div:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    #custom-context-menu .divider {
+      height: 1px;
+      background: var(--border-soft);
+      margin: 4px 0;
+      padding: 0;
+    }
+
+    /* ===== Grid Lock + ลากสลับจอ ===== */
+    .stream-box.drop-target {
+      outline: 2px dashed var(--accent);
+      outline-offset: -3px;
+      filter: brightness(1.3);
+    }
+
+    /* ไฟสถานะสตรีม (LED) */
+    .stream-led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3a3f3a;
+      flex: 0 0 auto;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .stream-led.led-live { background: var(--accent); box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.8); }
+    .stream-led.led-loading { background: #f5a623; box-shadow: 0 0 6px rgba(245, 166, 35, 0.7); }
+    .stream-led.led-error { background: var(--danger); box-shadow: 0 0 6px rgba(255, 90, 95, 0.8); }
+
+    /* แถบควบคุมจอ: ไต่หลายแถวอัตโนมัติเมื่อจอแคบ (ปุ่มไม่ตกหล่น) */
+    .stream-header {
+      flex-wrap: wrap;
+      row-gap: 3px;
+    }
+    .stream-header .nav-btn { padding: 4px 6px; font-size: 9px; color: var(--faint); }
+    .stream-header .nav-btn:hover { color: var(--text); }
+    .stream-header .brightness-btn { padding: 4px 6px; }
+
+    /* Container query: จอแคบ = ปุ่มกะทัดรัด ย่อเหลือไอคอน */
+    .stream-box { container-type: inline-size; }
+    @container (max-width: 430px) {
+      .stream-header { padding: 4px 5px; gap: 3px; }
+      .stream-header input.name-input { width: 70px; }
+      .stream-header button { padding: 3px 5px; font-size: 10px; }
+      .stream-header button .btn-label { display: none; }
+      .volume-control input[type=range] { width: 34px; }
+      .zoom-control span, .volume-control span { min-width: 26px; font-size: 9px; }
+    }
+    @container (max-width: 260px) {
+      .stream-header input.name-input { width: 52px; }
+      .stream-header input.url-input { min-width: 40px; }
+      .zoom-control { display: none; }
+      .volume-control span { display: none; }
+    }
+
+    /* สวิตช์เปิดเสียงหลายจอ */
+    .toolbar .multi-audio-switch {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 8px;
+    }
+    .toolbar .multi-audio-switch input { accent-color: var(--accent); cursor: pointer; }
+
+    /* สไลเดอร์ความโปร่งใสหน้าต่าง */
+    .toolbar .opacity-slider { width: 70px; accent-color: var(--accent); cursor: pointer; }
+
+    /* ปุ่มเลือกธีมสี */
+    .theme-picker {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      border: 1px solid var(--border);
+      padding: 3px 6px;
+      border-radius: 8px;
+    }
+    .theme-picker .theme-swatch {
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+    .theme-picker .theme-swatch:hover { transform: scale(1.2); }
+    .theme-picker .theme-swatch.current { outline: 2px solid #fff; outline-offset: 1px; }
+    .theme-picker input[type=color] {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 1px dashed var(--dim);
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    /* Overlay สมุดปุ่มลัด */
+    #shortcuts-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200000;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+    }
+    #shortcuts-overlay.open { display: flex; }
+    #shortcuts-overlay .sc-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 26px;
+      max-width: 540px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+    }
+    #shortcuts-overlay h3 { color: var(--accent); font-size: 15px; margin-bottom: 12px; letter-spacing: 0.4px; }
+    #shortcuts-overlay .sc-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; }
+    #shortcuts-overlay kbd {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 11px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    #shortcuts-overlay .sc-desc { font-size: 12px; color: var(--dim); }
+    #shortcuts-overlay .sc-hint { margin-top: 12px; font-size: 11px; color: var(--faint); }
+
+    /* แบนเนอร์แจ้งอัปเดตอัตโนมัติ (โชว์เมื่อเจอ/ดาวน์โหลดเวอร์ชันใหม่) */
+    #update-banner {
+      display: none;
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      z-index: 70000;
+      background: rgba(20, 23, 20, 0.97);
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 12px;
+      padding: 10px 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+      max-width: 420px;
+    }
+    #update-banner.show { display: block; }

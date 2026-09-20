@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>PitchView — Multi-View Football</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- แถบแตะด้านบนเพื่อดึง Toolbar กลับมาเมื่อถูกซ่อน -->
+  <div id="toolbar-hover-trigger" title="คลิกหรือชี้เพื่อเปิดแถบเมนูด้านบน" onclick="toggleTopToolbar()"></div>
+
+  <!-- Top Toolbar -->
+  <div class="toolbar" id="top-toolbar">
+    <div class="app-brand" title="PitchView">
+      <img src="assets/icon.png" alt="">
+      <span>Pitch<b>View</b></span>
+    </div>
+    <label>Layout:</label>
+    <select id="layout-select" onchange="changeLayout(this.value)">
+      <option value="layout-4" selected>4 จอ (2x2)</option>
+      <option value="layout-master">1 ใหญ่ + 3 เล็ก (Master)</option>
+      <option value="layout-1">1 จอใหญ่</option>
+      <option value="layout-2">2 จอ (1x2)</option>
+      <option value="layout-6">6 จอ (2x3)</option>
+      <option value="layout-9">9 จอ (3x3)</option>
+      <option value="layout-custom">🎯 จัดเรียงเอง (Custom)</option>
+      <optgroup id="layout-presets-group" label="🎯 เลย์เอาต์ที่บันทึกไว้"></optgroup>
+    </select>
+
+    <span id="custom-save-group" title="ลาก ⠿ หน้าแถบจอ = ย้าย • ลากมุมขวาล่าง = ย่อขยาย • ขอบจอชนกันเอง ลากทับกันไม่ได้ • ตั้งชื่อแล้วกดบันทึก (พิมพ์ชื่อซ้ำ = อัปเดตทับ)">
+      <input type="text" id="cl-new-name" placeholder="ชื่อเลย์เอาต์..." onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();saveCurrentCustomLayout();}">
+      <button class="cl-save" onclick="saveCurrentCustomLayout()" title="บันทึกเลย์เอาต์ปัจจุบัน">💾</button>
+      <button id="btn-del-preset" onclick="deleteActiveCustomLayout()" title="ลบเลย์เอาต์ที่กำลังใช้อยู่" style="display:none">🗑</button>
+    </span>
+
+    <button onclick="addStreamSlot()" title="เพิ่มช่องสตรีมใหม่">+ เพิ่มช่อง</button>
+    <button onclick="reloadAllStreams()" title="รีเฟรชทุกหน้าต่างพร้อมกัน">🔄 รีเฟรชทั้งหมด</button>
+    <button class="btn-advance-all" onclick="runAdvanceAll()" title="Auto-Play + Focus ทุกหน้าต่างพร้อมกัน">⚡ Advance ทั้งหมด</button>
+
+    <!-- Staggered Auto-Cycle Group -->
+    <div class="cycle-group" title="สลับรีเฟรช + Advance วนทีละจออัตโนมัติ">
+      <label>⏱️ วนรีเฟรช:</label>
+      <select id="cycle-interval-select" onchange="changeAutoCycleInterval(this.value)">
+        <option value="0" selected>ปิด</option>
+        <option value="1">ทุก 1 นาที</option>
+        <option value="2">ทุก 2 นาที</option>
+        <option value="3">ทุก 3 นาที</option>
+        <option value="5">ทุก 5 นาที</option>
+        <option value="10">ทุก 10 นาที</option>
+      </select>
+      <span class="cycle-status-badge" id="cycle-status-text">ปิด</span>
+    </div>
+
+    <button onclick="muteAll()">🔇 ปิดเสียง</button>
+    <button id="btn-toggle-all-headers" onclick="toggleAllHeaders()">👁️ ซ่อนแถบจอ (H)</button>
+    <button class="btn-fullscreen" onclick="toggleFullScreen()">⛶ เต็มจอ (F11)</button>
+    <button id="btn-pin" onclick="togglePinned()" title="ตรึงหน้าต่างโปรแกรมไว้เหนือโปรแกรมอื่นเสมอ (แม้เล่นเกม/ทำงานค้างไว้ก็มองเห็นบอล)">📌 ตรึงหน้าต่าง</button>
+    <button id="btn-grid-lock" onclick="toggleGridLock()" title="ล็อก = ห้ามลากสลับจอ กันลากพลาดตอนดูบอล / ปลดล็อก = ลาก ⠿ หน้าแถบจอเพื่อสลับตำแหน่งได้">🔒 ล็อกกริด</button>
+
+    <!-- เปิดเสียงหลายจอพร้อมกัน -->
+    <label class="multi-audio-switch" title="เปิดสวิตช์นี้เพื่อเปิดเสียงหลายจอพร้อมกัน (ปิด = เปิดเสียงได้จอเดียวแบบเดิม)">
+      <input type="checkbox" id="multi-audio-toggle" onchange="toggleMultiAudioMode(this.checked)">
+      เสียงหลายจอ
+    </label>
+
+    <!-- ความโปร่งใสหน้าต่าง -->
+    <label title="ปรับความโปร่งใสของหน้าต่าง ใช้คู่กับปุ่มตรึงหน้าต่างเพื่อวางทับโปรแกรมอื่น">โปร่งใส</label>
+    <input type="range" class="opacity-slider" id="opacity-slider" min="30" max="100" value="100" oninput="setWindowOpacity(this.value)">
+
+    <button onclick="toggleShortcutOverlay()" title="ดูปุ่มลัดทั้งหมดในแอป (กด ? ได้เช่นกัน)">⌨️ ปุ่มลัด</button>
+
+    <!-- Collapsible Login Section -->
+    <div class="login-group" id="login-group-box">
+      <button class="btn-login-main" onclick="handleLoginButtonClick()" title="คลิกเพื่อขยายช่องใส่ลิงก์ หรือกดเข้าสู่ระบบ">🔑 Login</button>
+      <input type="text" id="login-url-input" placeholder="URL ล็อกอิน..." onkeydown="if(event.key==='Enter') openLoginWindow()">
+      <button class="btn-login-close" onclick="collapseLoginGroup(event)" title="พับเก็บ">✕</button>
+    </div>
+
+    <!-- Realtime System Stats (CPU & RAM) -->
+    <div class="system-stats" id="stats-badge" title="สถานะทรัพยากรที่โปรแกรมและระบบใช้งาน">
+      <span>CPU: <span class="cpu-val" id="cpu-stat">0%</span></span>
+      <span>RAM: <span class="ram-val" id="ram-stat">0 MB</span></span>
+    </div>
+
+    <button class="primary" onclick="saveToStorage()">💾 บันทึก</button>
+    <button onclick="toggleTopToolbar()" title="ซ่อนแถบเมนูบนสุด (ปุ่มลัด: T)">▲ ซ่อนแถบ (T)</button>
+
+    <!-- ธีมสี Custom: เลือกสีเน้นของทั้งแอป -->
+    <div class="theme-picker" title="เลือกสีเน้นของแอป — กดสีลัดด้านซ้าย หรือเลือกสีเองจากวงกลมด้านขวา">
+      <button class="theme-swatch" data-c="#30d158" style="background:#30d158" onclick="applyAccent('#30d158')" title="เขียวสนาม"></button>
+      <button class="theme-swatch" data-c="#64b5f6" style="background:#64b5f6" onclick="applyAccent('#64b5f6')" title="ฟ้า"></button>
+      <button class="theme-swatch" data-c="#ffb74d" style="background:#ffb74d" onclick="applyAccent('#ffb74d')" title="ส้ม"></button>
+      <button class="theme-swatch" data-c="#ba68c8" style="background:#ba68c8" onclick="applyAccent('#ba68c8')" title="ม่วง"></button>
+      <button class="theme-swatch" data-c="#f06292" style="background:#f06292" onclick="applyAccent('#f06292')" title="ชมพู"></button>
+      <input type="color" id="theme-custom-color" value="#30d158" onchange="setCustomAccent(this.value)" title="เลือกสีเอง">
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div id="grid-container" class="layout-4"></div>
+
+  <!-- Overlay ระหว่างลากย้าย/ย่อขยายจอ -->
+  <div id="drag-overlay"></div>
+
+  <!-- Toast คำใบ้เมื่อเข้าโหมดจัดเรียงเอง (โชว์ครั้งแรกของเซสชัน แล้วหายไปเอง) -->
+  <div id="custom-hint-toast">🎯 โหมดจัดเรียงเอง — ลาก ⠿ = ย้าย • ลากมุมขวาล่าง = ย่อขยาย • ขอบจอชนกันเอง ลากทับกันไม่ได้</div>
+
+  <!-- Overlay สมุดปุ่มลัด (กด ? เพื่อเปิด) -->
+  <div id="shortcuts-overlay" onclick="if(event.target===this)closeShortcutOverlay()">
+    <div class="sc-card">
+      <h3>⌨️ ปุ่มลัดทั้งหมดใน PitchView</h3>
+      <div class="sc-grid">
+        <kbd>1 – 9</kbd><span class="sc-desc">เปิด/สลับเสียงจอที่ 1–9</span>
+        <kbd>Shift + 1 – 9</kbd><span class="sc-desc">ขยายเดี่ยวจอนั้น (⛶)</span>
+        <kbd>Tab / Shift+Tab</kbd><span class="sc-desc">วนเสียงไปจอถัดไป / ย้อนกลับ</span>
+        <kbd>← →</kbd><span class="sc-desc">วนเสียงซ้าย / ขวา</span>
+        <kbd>M</kbd><span class="sc-desc">ปิดเสียงทุกจอทันที</span>
+        <kbd>H</kbd><span class="sc-desc">ซ่อน / แสดงแถบจอทุกจอ</span>
+        <kbd>T</kbd><span class="sc-desc">ซ่อน / แสดงแถบเมนูบน</span>
+        <kbd>F11</kbd><span class="sc-desc">เต็มจอ</span>
+        <kbd>?</kbd><span class="sc-desc">เปิดสมุดปุ่มลัดนี้</span>
+        <kbd>Esc</kbd><span class="sc-desc">ย่อจอขยายกลับ / ดึง pop-out ทุกจอกลับ / ปิดหน้าต่างนี้</span>
+        <kbd>Ctrl + P</kbd><span class="sc-desc">(ในหน้าต่าง pop-out) ตรึงหน้าต่างนั้น</span>
+      </div>
+      <div class="sc-hint">เลื่อนล้อเมาส์บนปุ่ม 🔊 ของจอไหนก็ได้ = ปรับเสียงจอนั้น • เลื่อนล้อบนปุ่ม ☀ = ปรับความสว่างจอนั้น</div>
+      <div class="sc-hint">กด ? หรือ Esc เพื่อปิดหน้าต่างนี้</div>
+    </div>
+  </div>
+
+  <!-- Right Click Context Menu -->
+  <div id="custom-context-menu">
+    <div onclick="contextAction('toggleHeader')">👁️ ซ่อน / แสดง แถบควบคุม</div>
+    <div onclick="contextAction('advance')">⚡ Advance Auto-Fix</div>
+    <div onclick="contextAction('maximize')">⛶ ขยายเดี่ยว / ย่อกลับ</div>
+    <div class="divider"></div>
+    <div onclick="contextAction('popout')">⧉ ดึงออกเป็นหน้าต่างแยก</div>
+    <div onclick="contextAction('audio')">🔊 เปิด / ปิดเสียงช่องนี้</div>
+    <div onclick="contextAction('reload')">🔄 รีเฟรชช่องนี้</div>
+    <div class="divider"></div>
+    <div onclick="contextAction('delete')" style="color: #ff5252;">✕ ลบช่องนี้</div>
+  </div>
+
+  <!-- Test harness stub: ทำงานเฉพาะตอนเปิดในเบราว์เซอร์ปกติ (ใช้ตอนทดสอบ) — ใน Electron จะข้ามทันที -->
+  <!-- แบนเนอร์อัปเดตอัตโนมัติ (โชว์เมื่อเจอ/ดาวน์โหลดเวอร์ชันใหม่เสร็จ) -->
+  <div id="update-banner" onclick="installUpdateNow()" title="คลิกเพื่อติดตั้งและรีสตาร์ท"></div>
+  <script src="test/electron-stub.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

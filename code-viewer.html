@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>PitchView — Code Viewer</title>
+<style>
+  :root {
+    --bg: #0d0f0d; --surface: #141814; --surface2: #1a1f1a;
+    --border: #263026; --text: #d5e0d5; --faint: #7a8a7a;
+    --accent: #30d158; --kw: #30d158; --str: #e0c060; --com: #5f7a63;
+    --num: #6ac8dc; --tag: #4ec9b0; --attr: #9cdcfe; --fn: #b8e06a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: "Segoe UI", sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header .brand { font-size: 14px; color: var(--accent); font-weight: 700; margin-right: 8px; }
+  header .brand b { color: var(--text); font-weight: 400; }
+  .tab { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 12px; padding: 5px 12px; border-radius: 7px; cursor: pointer; }
+  .tab:hover { border-color: var(--accent); }
+  .tab.active { background: rgba(48, 209, 88, 0.14); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  #meta { margin-left: auto; font-size: 11px; color: var(--faint); }
+  #copy-btn { background: transparent; border: 1px solid var(--border); color: var(--faint); font-size: 11px; padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+  #copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  #stage { flex: 1; display: flex; overflow: hidden; position: relative; }
+  #gutter { padding: 12px 8px 12px 14px; text-align: right; color: #4a5a4a; background: var(--surface); border-right: 1px solid var(--border); font: 12px/1.55 Consolas, monospace; user-select: none; overflow: hidden; white-space: pre; }
+  #code-wrap { flex: 1; overflow: auto; }
+  #code { padding: 12px 20px; font: 12px/1.55 Consolas, monospace; white-space: pre; }
+  #err { color: #ff5a5f; padding: 14px; display: none; font-size: 13px; }
+  .tk-kw { color: var(--kw); font-weight: 600; }
+  .tk-str { color: var(--str); }
+  .tk-com { color: var(--com); font-style: italic; }
+  .tk-num { color: var(--num); }
+  .tk-tag { color: var(--tag); font-weight: 600; }
+  .tk-attr { color: var(--attr); }
+  .tk-fn { color: var(--fn); }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">Pitch<b>View</b> Code Viewer</span>
+  <span id="tabs"></span>
+  <span id="meta"></span>
+  <button id="copy-btn">⧉ Copy</button>
+</header>
+<div id="stage">
+  <div id="gutter"></div>
+  <div id="code-wrap"><pre id="code"></pre><div id="err"></div></div>
+</div>
+
+<script>
+'use strict';
+// ===== PitchView Code Viewer — self-contained syntax highlighter (no dependencies) =====
+const FILES = [
+  ['app.js', 'js'], ['main.js', 'js'], ['style.css', 'css'],
+  ['index.html', 'html'], ['popout.html', 'html'],
+  ['package.json', 'json'], ['README.md', 'md']
+];
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const R = (src, cls, fn, flags) => ({ re: new RegExp(src, 'y' + (flags || '')), cls, fn });
+
+// --- JS / JSON ---
+const JS_RULES = [
+  R('\\s+', ''),
+  R('//[^\\n]*', 'com'),
+  R('/\\*[\\s\\S]*?\\*/', 'com'),
+  R('`(?:\\\\.|[^`\\\\])*`', 'str'),
+  R('"(?:\\\\.|[^"\\\\\\n])*"?', 'str'),
+  R("'(?:\\\\.|[^'\\\\\\n])*'?", 'str'),
+  R('\\b0x[0-9a-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?\\b', 'num'),
+  R('\\b(?:const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|class|extends|super|this|typeof|instanceof|in|of|try|catch|finally|throw|delete|void|yield|async|await|static|get|set|import|export|from|default)\\b', 'kw'),
+  R('\\b(?:true|false|null|undefined|NaN)\\b', 'num'),
+  R('[A-Za-z_$][\\w$]*(?=\\s*\\()', 'fn'),
+  R('[A-Za-z_$][\\w$]*', '')
+];
+
+// --- CSS ---
+const CSS_RULES = [
+  R('\\s+', ''),
+  R('/\\*[\\s\\S]*?\\*/', 'com'),
+  R('@[\\w-]+', 'kw'),
+  R('"(?:\\\\.|[^"\\\\\\n])*"|\'(?:\\\\.|[^\'\\\\\\n])*\'', 'str'),
+  R('--[\\w-]+', 'attr'),
+  R('#[0-9a-fA-F]{3,8}\\b', 'num'),
+  R('\\b\\d+(?:\\.\\d+)?(?:px|em|rem|%|vh|vw|s|ms|fr|deg)?\\b', 'num'),
+  R('[\\w-]+(?=\\s*:)', 'attr'),
+  R('[\\w-]+(?=\\()', 'fn'),
+  R('[A-Za-z_-][\\w-]*', '')
+];
+
+// --- JSON ---
+const JSON_RULES = [
+  R('\\s+', ''),
+  R('"(?:\\\\.|[^"\\\\])*"(?=\\s*:)', 'attr'),
+  R('"(?:\\\\.|[^"\\\\])*"', 'str'),
+  R('-?\\b\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b', 'num'),
+  R('\\b(?:true|false|null)\\b', 'kw')
+];
+
+// --- Markdown ---
+const MD_RULES = [
+  R('^#{1,6}[^\\n]*', 'kw', null, 'm'),
+  R('```[\\s\\S]*?```', 'str'),
+  R('`[^`\\n]+`', 'str'),
+  R('\\*\\*[^*\\n]+\\*\\*', 'fn'),
+  R('\\[[^\\]\\n]*\\]\\([^)\\n]*\\)', 'attr'),
+  R('^\\s*(?:[-*]|\\d+\\.)\\s', 'num', null, 'm')
+];
+
+// --- HTML: <style>/<script> delegate ให้ css/js tokenizer ---
+const TAG_INNER = [
+  R('<\\/?[A-Za-z][^>]*>?', 'tag'),
+  R('[^<]+', '')
+];
+function tagOut(m) {
+  let s = esc(m[0]);
+  s = s.replace(/([\w-]+)=("[^"]*")/g, '<span class="tk-attr">$1</span>=<span class="tk-str">$2</span>');
+  s = s.replace(/^(&lt;\/?)([a-zA-Z][\w-]*)/, '$1<span class="tk-tag">$2</span>');
+  return s;
+}
+const HTML_RULES = [
+  R('\\s+', ''),
+  R('<!--[\\s\\S]*?-->', 'com'),
+  R('<!DOCTYPE[^>]*>', 'kw'),
+  R('<style[^>]*>[\\s\\S]*?</style>|<script[^>]*>[\\s\\S]*?<\\/script>', '', m => {
+    const open = m[0].match(/^<[^>]*>/)[0];
+    const close = m[0].match(/<\/[^>]*>$/)[0];
+    const inner = m[0].slice(open.length, m[0].length - close.length);
+    const lang = /^<style/i.test(open) ? cssText : jsText;
+    return tagOut([open]) + lang(inner) + tagOut([close]);
+  }),
+  R('<\\/?[A-Za-z][^>]*>?', '', tagOut),
+  R('[^<]+', '')
+];
+
+function tokenize(src, rules) {
+  let out = '', i = 0;
+  const n = src.length;
+  while (i < n) {
+    let hit = false;
+    for (const r of rules) {
+      r.re.lastIndex = i;
+      const m = r.re.exec(src);
+      if (m && m.index === i && m[0].length > 0) {
+        out += r.fn ? r.fn(m) : (r.cls ? '<span class="tk-' + r.cls + '">' + esc(m[0]) + '</span>' : esc(m[0]));
+        i += m[0].length;
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) { out += esc(src[i]); i++; }
+  }
+  return out;
+}
+const jsText = s => tokenize(s, JS_RULES);
+const cssText = s => tokenize(s, CSS_RULES);
+
+function highlight(src, lang) {
+  if (lang === 'js') return jsText(src);
+  if (lang === 'css') return cssText(src);
+  if (lang === 'json') return tokenize(src, JSON_RULES);
+  if (lang === 'md') return tokenize(src, MD_RULES);
+  if (lang === 'html') return tokenize(src, HTML_RULES);
+  return esc(src);
+}
+
+// ===== UI =====
+const tabsEl = document.getElementById('tabs');
+const codeEl = document.getElementById('code');
+const gutterEl = document.getElementById('gutter');
+const metaEl = document.getElementById('meta');
+const errEl = document.getElementById('err');
+let current = null;
+
+function showError(msg) {
+  errEl.style.display = 'block';
+  errEl.textContent = msg;
+}
+
+async function open(name, lang) {
+  [...tabsEl.children].forEach(t => t.classList.toggle('active', t.dataset.f === name));
+  current = name;
+  errEl.style.display = 'none';
+  codeEl.innerHTML = '';
+  try {
+    const res = await fetch(name);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const src = await res.text();
+    codeEl.innerHTML = highlight(src, lang);
+    const lines = src.split('\n').length;
+    let g = '';
+    for (let i = 1; i <= lines; i++) g += i + '\n';
+    gutterEl.textContent = g;
+    metaEl.textContent = lines + ' บรรทัด • ' + (new Blob([src]).size / 1024).toFixed(1) + ' KB';
+    document.getElementById('code-wrap').scrollTop = 0;
+  } catch (e) {
+    showError('โหลดไฟล์ "' + name + '" ไม่สำเร็จ (' + e.message + ') — เปิดหน้านี้ผ่าน local server เช่น python -m http.server แล้วรีเฟรช');
+  }
+}
+
+FILES.forEach(([name, lang]) => {
+  const b = document.createElement('button');
+  b.className = 'tab';
+  b.dataset.f = name;
+  b.textContent = name;
+  b.onclick = () => open(name, lang);
+  tabsEl.appendChild(b);
+});
+
+document.getElementById('copy-btn').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(codeEl.innerText);
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ คัดลอกแล้ว';
+    setTimeout(() => { btn.textContent = '⧉ Copy'; }, 1500);
+  } catch (e) { /* ignore */ }
+};
+
+document.getElementById('code-wrap').addEventListener('scroll', e => {
+  gutterEl.scrollTop = e.target.scrollTop;
+});
+
+open(FILES[0][0], FILES[0][1]);
+</script>
+</body>
+</html>

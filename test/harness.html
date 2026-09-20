@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>PitchView — Interactive Test</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111; color: #ddd; font-family: "Segoe UI", sans-serif; padding: 10px 14px 40px; }
+  h1 { font-size: 16px; color: #30d158; margin-bottom: 4px; }
+  p.sub { color: #888; font-size: 12px; margin-bottom: 14px; }
+  button { cursor: pointer; }
+  .case { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .case h3 { font-size: 13px; margin-bottom: 8px; }
+  .case .desc { font-size: 11px; color: #999; margin-bottom: 8px; }
+  .btn { background: #2a2a2a; border: 1px solid #444; color: #eee; padding: 5px 12px; border-radius: 7px; font-size: 12px; margin-right: 6px; }
+  .btn:hover { background: #333; }
+  .ok { color: #30d158; font-weight: 700; }
+  .fail { color: #ff5a5f; font-weight: 700; }
+  #app-frame { width: 100%; height: 720px; border: 1px solid #333; border-radius: 8px; background: #000; margin-top: 6px; }
+  .log { font-family: Consolas, monospace; font-size: 11px; color: #9c9; background: #0d0d0d; padding: 6px 10px; border-radius: 6px; margin-top: 6px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>🧪 PitchView Interactive Test Harness</h1>
+<p class="sub">แอปจริง (index.html) ฝังใน iframe ด้านล่าง — กดปุ่มทดสอบแต่ละข้อแล้วดูผล PASS/FAIL ได้เลย (ทำงานกับ DOM จริงของแอป)</p>
+
+<div class="case">
+  <h3>1. Grid Lock + ลากสลับจอ</h3>
+  <div class="desc">สมมติการลาก ⠿ จอ 1 → ปล่อยบนจอ 2 (ต้องปลดล็อกกริดก่อน) — สลับด้วย CSS order วิดีโอไม่รีโหลด</div>
+  <button class="btn" onclick="T1()">▶ ทดสอบสลับจอ 1 ↔ 2</button>
+  <button class="btn" onclick="T1locked()">🔒 ทดสอบตอนล็อก (ต้องไม่สลับ)</button>
+  <div class="log" id="out1"></div>
+</div>
+
+<div class="case">
+  <h3>2. แถบปุ่ม responsive</h3>
+  <div class="desc">เช็คว่า header ใช้ flex-wrap + container query และเมื่อจอแคบ ปุ่มทุกปุ่มยังอยู่ในกรอบที่มองเห็น</div>
+  <button class="btn" onclick="T2()">▶ ทดสอบ flex-wrap + ปุ่มเกินกรอบ</button>
+  <div class="log" id="out2"></div>
+</div>
+
+<div class="case">
+  <h3>3. URL ซิงก์ + ย้อนกลับ/ไปหน้า + Enter</h3>
+  <div class="desc">จำลองเว็บเปลี่ยนหน้าเอง → ช่อง URL ต้องอัปเดตตาม / ปุ่ม ◀ ▶ ต้องเดินประวัติได้ / Enter = โหลด</div>
+  <button class="btn" onclick="T3()">▶ ทดสอบทั้งชุด</button>
+  <div class="log" id="out3"></div>
+</div>
+
+<div class="case">
+  <h3>4. Save เลย์เอาต์ Custom</h3>
+  <div class="desc">เข้าโหมด Custom → บันทึกไม่พิมพ์ชื่อ 2 ครั้ง = ต้องมีรายการเดียว (แก้บั๊กเดิม "เลย์เอาต์ 2, 3" ซ้ำ)</div>
+  <button class="btn" onclick="T4()">▶ ทดสอบบันทึกซ้ำไม่พิมพ์ชื่อ</button>
+  <div class="log" id="out4"></div>
+</div>
+
+<div class="case">
+  <h3>5. เสียง: หลายจอ + ปกติ + ปุ่มลัด + ล้อเมาส์</h3>
+  <div class="desc">โหมดปกติ 1–9 = จอเดียว / สวิตช์เสียงหลายจอ = เปิดหลายจอพร้อมกัน / M = ปิดหมด / ล้อเมาส์บนปุ่ม 🔊 = ปรับเสียง</div>
+  <button class="btn" onclick="T5()">▶ ทดสอบระบบเสียงทั้งชุด</button>
+  <div class="log" id="out5"></div>
+</div>
+
+<div class="case">
+  <h3>6. ปุ่มลัด Shift+เลข (ขยายเดี่ยว) + ? (สมุดปุ่มลัด)</h3>
+  <div class="desc">Shift+3 ต้องขยายจอ 3 เต็มจอ กด Esc ย่อกลับ / กด ? ต้องเปิด overlay สมุดปุ่มลัด</div>
+  <button class="btn" onclick="T6()">▶ ทดสอบปุ่มลัด</button>
+  <div class="log" id="out6"></div>
+</div>
+
+<div class="case">
+  <h3>7. ไฟสถานะ LED</h3>
+  🟢 โหลดเสร็จ = เขียว / โหลดพลาด = แดง — จำลอง event จาก webview
+  <button class="btn" onclick="T7()">▶ ทดสอบ LED</button>
+  <div class="log" id="out7"></div>
+</div>
+
+<div class="case">
+  <h3>8. ความสว่าง/สีต่อจอ</h3>
+  <div class="desc">กด ☀ แล้ว webview ต้องมี filter brightness / ◐ ต้องสลับ saturate</div>
+  <button class="btn" onclick="T8()">▶ ทดสอบความสว่าง</button>
+  <div class="log" id="out8"></div>
+</div>
+
+<div class="case">
+  <h3>9. โปร่งใส + ธีมสี</h3>
+  <div class="desc">สไลเดอร์โปร่งใสต้องส่ง IPC / เลือกธีมต้องเปลี่ยน CSS variable + จำค่า</div>
+  <button class="btn" onclick="T9()">▶ ทดสอบโปร่งใส + ธีม</button>
+  <div class="log" id="out9"></div>
+</div>
+
+<div class="case">
+  <h3>10. Pop-out payload</h3>
+  <div class="desc">กด ⧉ ต้องส่ง URL ปัจจุบันจริง (ไม่ใช่ค่าเก่าในช่อง) ไปให้ main process</div>
+  <button class="btn" onclick="T10()">▶ ทดสอบ pop-out</button>
+  <div class="log" id="out10"></div>
+</div>
+
+<div class="case">
+  <h3>11. กันจอทับ + ขอบแม่เหล็ก + เมนู Layout รวมเลย์เอาต์ที่บันทึกไว้</h3>
+  <div class="desc">ลากทับจออื่น = โดนดันวางชิดขอบ / ขอบใกล้กัน = ดูดชิดเป๊ะ / ขยายทับ = หยุดที่ขอบเพื่อน / บันทึกเลย์เอาต์แล้วเลือกได้จากเมนู Layout</div>
+  <button class="btn" onclick="T11()">▶ ทดสอบกันทับ + แม่เหล็ก + เมนู</button>
+  <div class="log" id="out11"></div>
+</div>
+
+<iframe id="app-frame" src="../index.html"></iframe>
+
+<script>
+const out = (id, lines) => { document.getElementById(id).textContent = lines.join('\n'); };
+const assert = (cond, msg) => (cond ? '✅ PASS ' : '❌ FAIL ') + msg;
+const F = () => document.getElementById('app-frame').contentWindow;
+window.__TESTS_READY = true;
+
+function fireMouse(el, type, x, y) {
+  const r = el.getBoundingClientRect();
+  const ev = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
+  el.dispatchEvent(ev);
+}
+
+function T1() {
+  const w = F(), L = [];
+  try {
+    w.localStorage.removeItem('saved_grid_lock');
+    w.__pv.set('gridLocked', false);
+    w.updateGridLockUI();
+    const box1 = w.document.getElementById('box-1');
+    const box2 = w.document.getElementById('box-2');
+    L.push(assert(!!box1 && !!box2, 'เจอจอ 1 และ 2'));
+    // จำลอง mousedown ที่ grip ของจอ 1 → mousemove ไปกลางจอ 2 → mouseup
+    const grip1 = w.document.querySelector('#box-1 .move-grip');
+    const r2 = box2.getBoundingClientRect();
+    fireMouse(grip1, 'mousedown', 5, 5);
+    fireMouse(w.document.body, 'mousemove', r2.left + r2.width / 2, r2.top + r2.height / 2);
+    fireMouse(w.document.body, 'mouseup', r2.left + r2.width / 2, r2.top + r2.height / 2);
+    const o1 = box1.style.order, o2 = box2.style.order;
+    L.push(assert(o1 && o2 && o1 !== o2, `สลับ order กันแล้ว (1→${o1}, 2→${o2})`));
+    const saved = JSON.parse(w.localStorage.getItem('saved_grid_order'));
+    L.push(assert(saved && saved['1'] !== undefined, 'บันทึกลำดับลง localStorage แล้ว'));
+    // วิดีโอไม่รีโหลด: DOM node ของ webview ต้องเป็นตัวเดิม
+    L.push(assert(w.document.getElementById('wv-1') === w.document.querySelector('#box-1 webview'), 'webview ยังเป็น node เดิม (ไม่รีโหลด)'));
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out1', L);
+}
+
+function T1locked() {
+  const w = F(), L = [];
+  try {
+    w.__pv.set('gridLocked', true);
+    w.updateGridLockUI();
+    const box1 = w.document.getElementById('box-1');
+    const o1before = box1.style.order;
+    const grip1 = w.document.querySelector('#box-1 .move-grip');
+    const r2 = w.document.getElementById('box-2').getBoundingClientRect();
+    fireMouse(grip1, 'mousedown', 5, 5);
+    fireMouse(w.document.body, 'mousemove', r2.left + r2.width / 2, r2.top + r2.height / 2);
+    fireMouse(w.document.body, 'mouseup', 10, 10);
+    L.push(assert(box1.style.order === o1before, 'ล็อกอยู่ = ไม่มีการสลับเกิดขึ้น'));
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out1', L);
+}
+
+function T2() {
+  const w = F(), L = [];
+  try {
+    const hdr = w.document.querySelector('#box-1 .stream-header');
+    const cs = w.getComputedStyle(hdr);
+    L.push(assert(cs.flexWrap === 'wrap', 'stream-header ใช้ flex-wrap: wrap'));
+    const btn = hdr.querySelector('.btn-advance');
+    L.push(assert(!!btn, 'ปุ่ม Advance มีอยู่'));
+    // เช็คว่าปุ่ม/ตัวควบคุมทุกตัวใน header อยู่ในกรอบแนวนอน (flex-wrap ทำให้ไต่แถวใหม่แทนการล้น)
+    const hw = hdr.getBoundingClientRect();
+    const controls = Array.from(hdr.querySelectorAll('button, input, .zoom-control, .volume-control'));
+    const overflowed = controls.filter(el => {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) return false;
+      return r.left < hw.left - 1 || r.right > hw.right + 1;
+    });
+    L.push(assert(overflowed.length === 0, `ปุ่มทุกตัวอยู่ในกรอบ header (ตรวจ ${controls.length} ตัว, ล้น ${overflowed.length})`));
+    const st = Array.from(w.document.styleSheets).some(s => {
+      try { return Array.from(s.cssRules).some(r => r.cssText && r.cssText.includes('@container')); } catch (e) { return false; }
+    });
+    L.push(assert(st, 'มี container query ใน CSS'));
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out2', L);
+}
+
+function T3() {
+  const w = F(), L = [];
+  try {
+    const wv1 = w.document.getElementById('wv-1');
+    const input1 = w.document.getElementById('input-1');
+    // (a) เว็บเปลี่ยนหน้าเอง → ช่อง URL ต้องตาม
+    input1.value = 'https://example.com/watch';
+    w.loadUrl(1);
+    setTimeout(() => {
+      // จำลองเว็บเดินหน้าเอง (stub เปลี่ยน state.url ภายใน)
+      wv1.__state.hist.push('https://example.com/watch/live-2');
+      wv1.__state.pos++;
+      wv1.__state.url = 'https://example.com/watch/live-2';
+      wv1.dispatchEvent(new Event('did-navigate'));
+      setTimeout(() => {
+        L.push(assert(input1.value.includes('live-2'), `ช่อง URL ซิงก์ตามหน้าจริง (ตอนนี้: ${input1.value})`));
+        // (b) ปุ่มย้อนกลับ
+        const backBtn = w.document.getElementById('back-btn-1');
+        L.push(assert(backBtn && !backBtn.disabled, 'ปุ่ม ◀ ใช้ได้เมื่อมีประวัติ'));
+        w.goBackUrl(1);
+        setTimeout(() => {
+          L.push(assert(!w.document.getElementById('back-btn-1').disabled || true, 'กดย้อนกลับไม่ error'));
+          L.push(assert(wv1.getURL().includes('watch'), `เดินประวัติได้ (URL ปัจจุบัน: ${wv1.getURL()})`));
+          // (c) Enter ในช่อง = โหลด
+          input1.value = 'example.org/newpage';
+          const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+          input1.dispatchEvent(ev);
+          setTimeout(() => {
+            L.push(assert(wv1.getURL().includes('example.org/newpage'), `Enter โหลด URL ใหม่ได้ (${wv1.getURL()})`));
+            out('out3', L);
+          }, 80);
+        }, 60);
+        if (L.length) out('out3', L);
+      }, 60);
+    }, 60);
+  } catch (e) { L.push('❌ ERROR: ' + e.message); out('out3', L); }
+}
+
+function T4() {
+  const w = F(), L = [];
+  try {
+    // เข้าโหมด custom และเคลียร์รายการเดิมก่อน (เริ่มจากศูนย์ทุกครั้ง)
+    w.__pv.resetLayouts();
+    w.changeLayout('layout-custom');
+    w.saveCurrentCustomLayout(); // ครั้งที่ 1 → สร้าง "เลย์เอาต์ 1"
+    w.saveCurrentCustomLayout(); // ครั้งที่ 2 (ไม่พิมพ์ชื่อ) → ต้องอัปเดตตัวเดิม ไม่สร้างใหม่
+    const arr = JSON.parse(w.localStorage.getItem('saved_custom_layouts'));
+    L.push(assert(Array.isArray(arr) && arr.length === 1, `บันทึก 2 ครั้งไม่พิมพ์ชื่อ = มี 1 รายการ (มีจริง: ${arr ? arr.length : 0})`));
+    L.push(assert(arr && arr.length && arr[0].boxes && Object.keys(arr[0].boxes).length > 0, 'เก็บ geometry ครบในรายการ'));
+    // บันทึกพร้อมชื่อใหม่ = สร้างรายการที่ 2
+    const ni = w.document.getElementById('cl-new-name');
+    ni.value = 'ทดสอบ';
+    w.saveCurrentCustomLayout();
+    const arr2 = JSON.parse(w.localStorage.getItem('saved_custom_layouts'));
+    L.push(assert(arr2.length === 2 && arr2[1].name === 'ทดสอบ', 'พิมพ์ชื่อใหม่ = สร้างรายการแยก'));
+    // โหลดกลับมาใช้ → activeLayoutIndex ต้องชี้ถูก แล้วบันทึกทับได้
+    w.loadCustomLayout(0);
+    L.push(assert(w.__pv.get('activeLayoutIndex') === 0, 'โหลดเลย์เอาต์แล้ว pointer ชี้ถูกรายการ'));
+    w.saveCurrentCustomLayout();
+    const arr3 = JSON.parse(w.localStorage.getItem('saved_custom_layouts'));
+    L.push(assert(arr3.length === 2, 'กดบันทึกหลังโหลด = อัปเดตตัวเดิม (ยัง 2 รายการ)'));
+    w.__pv.resetLayouts();
+    w.changeLayout('layout-4'); // กลับโหมดปกติ
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out4', L);
+}
+
+function T5() {
+  const w = F(), L = [];
+  try {
+    // โหมดปกติ: กดเสียงจอ 1 แล้วตามด้วยจอ 2 → จอ 1 ต้องกลายเป็นปิดเสียง
+    w.__pv.set('multiAudioMode', false);
+    w.toggleAudio(1);
+    L.push(assert(w.__pv.get('activeAudioId') === 1, 'โหมดปกติ: เปิดเสียงจอ 1'));
+    w.toggleAudio(2);
+    L.push(assert(w.__pv.get('activeAudioId') === 2, 'โหมดปกติ: สลับไปจอ 2 อัตโนมัติ'));
+    const m1 = w.document.getElementById('wv-1').__state.muted;
+    L.push(assert(m1 === true, 'จอ 1 ถูกปิดเสียงเมื่อสลับไปจอ 2'));
+    // โหมดหลายจอ
+    w.__pv.set('multiAudioMode', true);
+    w.toggleAudio(1);
+    w.toggleAudio(2);
+    const set = w.__pv.get('multiAudioSet');
+    L.push(assert(set.has(1) && set.has(2), 'โหมดเสียงหลายจอ: เปิดจอ 1+2 พร้อมกัน'));
+    const m1b = w.document.getElementById('wv-1').__state.muted;
+    const m2b = w.document.getElementById('wv-2').__state.muted;
+    L.push(assert(m1b === false && m2b === false, 'ทั้งสองจอยังเปิดเสียงอยู่จริง'));
+    // M = ปิดหมด
+    w.muteAll();
+    L.push(assert(set.size === 0 && w.__pv.get('activeAudioId') === null, 'M/muteAll = ปิดเสียงทุกจอ'));
+    // ปุ่มลัดเลข (ยังอยู่ในโหมดเสียงหลายจอ → ตรวจที่ multiAudioSet)
+    w.toggleAudioByIndex(2); // จอที่ 3
+    L.push(assert(set.has(3), 'กดเลข 3 = เปิดเสียงจอที่ 3 (โหมดหลายจอ)'));
+    w.toggleAudio(null);
+    // ล้อเมาส์บนปุ่ม 🔊: ล้อลง = เสียงลด แล้วล้อขึ้น = เสียงเพิ่มกลับ
+    const audioBtn = w.document.getElementById('audio-btn-1');
+    audioBtn.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, bubbles: true, cancelable: true }));
+    const vDown = w.document.getElementById('vol-txt-1').innerText;
+    audioBtn.dispatchEvent(new WheelEvent('wheel', { deltaY: -120, bubbles: true, cancelable: true }));
+    const vUp = w.document.getElementById('vol-txt-1').innerText;
+    L.push(assert(vDown === '95%' && vUp === '100%', `ล้อเมาส์ปรับเสียงได้ (ลง=${vDown}, ขึ้น=${vUp})`));
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out5', L);
+}
+
+function T6() {
+  const w = F(), L = [];
+  try {
+    // Shift+3 = ขยายเดี่ยวจอ 3
+    w.document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '3', shiftKey: true, bubbles: true }));
+    const box3 = w.document.getElementById('box-3');
+    L.push(assert(box3.classList.contains('is-maximized'), 'Shift+3 = ขยายเดี่ยวจอ 3'));
+    w.document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    L.push(assert(!box3.classList.contains('is-maximized'), 'Esc = ย่อกลับ'));
+    // ? = เปิดสมุดปุ่มลัด
+    w.document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }));
+    const ov = w.document.getElementById('shortcuts-overlay');
+    L.push(assert(ov.classList.contains('open'), '? = เปิดสมุดปุ่มลัด'));
+    w.document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    L.push(assert(!ov.classList.contains('open'), 'Esc = ปิดสมุดปุ่มลัด'));
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out6', L);
+}
+
+function T7() {
+  const w = F(), L = [];
+  try {
+    const wv = w.document.getElementById('wv-1');
+    wv.dispatchEvent(new Event('did-start-loading'));
+    L.push(assert(w.document.getElementById('led-1').className.includes('led-loading'), 'กำลังโหลด = LED เหลือง'));
+    wv.dispatchEvent(new Event('did-finish-load'));
+    L.push(assert(w.document.getElementById('led-1').className.includes('led-live'), 'โหลดเสร็จ = LED เขียว'));
+    wv.dispatchEvent(new Event('did-fail-load'));
+    L.push(assert(w.document.getElementById('led-1').className.includes('led-error'), 'โหลดพลาด = LED แดง'));
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out7', L);
+}
+
+function T8() {
+  const w = F(), L = [];
+  try {
+    w.adjustBrightness(1, 10);
+    const wv = w.document.getElementById('wv-1');
+    L.push(assert((wv.style.filter || '').includes('brightness(110%)'), `กด ☀ = filter brightness (${wv.style.filter})`));
+    w.adjustBrightness(1, -30);
+    L.push(assert((wv.style.filter || '').includes('brightness(80%)'), 'เลื่อนล้อลง = มืดลง'));
+    w.toggleSaturation(1);
+    L.push(assert((wv.style.filter || '').includes('saturate(60%)'), '◐ = โทนนุ่มตา'));
+    w.toggleSaturation(1);
+    w.adjustBrightness(1, 20); // 80 → 100 (กลับค่าปกติ)
+    L.push(assert(w.document.getElementById('wv-1').style.filter === '', 'ค่ากลับปกติทั้งคู่ = filter ถูกเคลียร์'));
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out8', L);
+}
+
+function T9() {
+  const w = F(), L = [];
+  try {
+    // โปร่งใส
+    w.setWindowOpacity(60);
+    const sent = w.__ipcLog.filter(r => r[0] === 'set-window-opacity');
+    L.push(assert(sent.length && sent[sent.length - 1][1][0] === 0.6, 'สไลเดอร์โปร่งใสส่ง IPC ถูกค่า (0.6)'));
+    // ธีม
+    w.applyAccent('#ff0000');
+    const acc = w.getComputedStyle(w.document.documentElement).getPropertyValue('--accent').trim();
+    L.push(assert(acc === '#ff0000', `ธีมเปลี่ยนตาม (--accent = ${acc})`));
+    L.push(assert(w.localStorage.getItem('saved_accent') === '#ff0000', 'จำค่าธีมลง localStorage'));
+    w.applyAccent('#30d158');
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out9', L);
+}
+
+function T10() {
+  const w = F(), L = [];
+  try {
+    const wv = w.document.getElementById('wv-1');
+    // ทำให้ URL จริงต่างจากช่อง → pop-out ต้องใช้ URL จริง
+    wv.__state.hist.push('https://example.com/REAL-CURRENT');
+    wv.__state.pos++;
+    wv.__state.url = 'https://example.com/REAL-CURRENT';
+    w.document.getElementById('input-1').value = 'https://example.com/OLD-IN-BOX';
+    w.popoutStream(1);
+    const po = w.__popouts[1];
+    L.push(assert(!!po, 'กด ⧉ ส่ง popout-stream ออกไป'));
+    L.push(assert(po && po.url.includes('REAL-CURRENT'), `ใช้ URL ปัจจุบันจริง (${po ? po.url : '-'})`));
+    L.push(assert(po && !po.url.includes('OLD-IN-BOX'), 'ไม่ใช้ค่าเก่าในช่อง'));
+    // ปิด pop-out จำลอง → ปุ่มกลับมาใช้ได้
+    w.__ipcEmit('popout-closed', 1);
+    L.push(assert(!w.document.getElementById('popout-btn-1').disabled, 'ปิดหน้าต่างแยกแล้วปุ่มกลับมาใช้ได้'));
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out10', L);
+}
+
+function T11() {
+  const w = F(), L = [];
+  try {
+    w.changeLayout('layout-custom');
+    const bg = w.__pv.get('boxGeometry');
+    const grip1 = w.document.querySelector('#box-1 .move-grip');
+    const rh1 = w.document.querySelector('#box-1 .resize-handle');
+    const cont = w.document.getElementById('grid-container');
+    const cr = cont.getBoundingClientRect();
+
+    // (a) ลากย้าย: จอ 1 ลากขวาเข้าหาจอ 2 → โดนดันกลับวางชิดขอบจอ 2 พอดี (วางจอ 3, 4 เรียบร้อยก่อน)
+    bg['1'] = { x: 0, y: 0, w: 50, h: 50 };
+    bg['2'] = { x: 50, y: 0, w: 50, h: 50 };
+    bg['3'] = { x: 0, y: 50, w: 50, h: 50 };
+    bg['4'] = { x: 50, y: 50, w: 50, h: 50 };
+    w.applyGeometry(1); w.applyGeometry(2); w.applyGeometry(3); w.applyGeometry(4);
+    fireMouse(grip1, 'mousedown', cr.left + cr.width * 0.25, cr.top + cr.height * 0.2);
+    fireMouse(w.document.body, 'mousemove', cr.left + cr.width * 0.65, cr.top + cr.height * 0.2);
+    fireMouse(w.document.body, 'mouseup', cr.left + cr.width * 0.65, cr.top + cr.height * 0.2);
+    let g1 = bg['1'];
+    L.push(assert(g1.x + g1.w <= 50.01, `ลากทับจอ 2 ไม่ได้ — ขอบขวาหยุดที่ ${g1.x + g1.w}% (ต้อง ≤ 50)`));
+    L.push(assert(Math.abs(g1.x + g1.w - 50) < 0.01, 'วางชิดขอบจอ 2 พอดี ไม่มีช่องว่าง'));
+    L.push(assert(w.document.getElementById('wv-1') === w.document.querySelector('#box-1 webview'), 'webview ยังเป็น node เดิม (ไม่ถูกสร้างใหม่ระหว่างลาก)'));
+
+    // (b) แม่เหล็ก: ช่องว่าง 10% (45..55) ลากจอ 1 ขวา 9% → ขอบขวา 54 ถูกดูดไปชิด 55 เป๊ะ
+    bg['1'] = { x: 0, y: 0, w: 45, h: 50 };
+    bg['2'] = { x: 55, y: 0, w: 45, h: 50 };
+    bg['3'] = { x: 0, y: 50, w: 45, h: 50 };
+    bg['4'] = { x: 55, y: 50, w: 45, h: 50 };
+    w.applyGeometry(1); w.applyGeometry(2); w.applyGeometry(3); w.applyGeometry(4);
+    fireMouse(grip1, 'mousedown', cr.left + cr.width * 0.25, cr.top + cr.height * 0.2);
+    fireMouse(w.document.body, 'mousemove', cr.left + cr.width * 0.34, cr.top + cr.height * 0.2);
+    fireMouse(w.document.body, 'mouseup', cr.left + cr.width * 0.34, cr.top + cr.height * 0.2);
+    g1 = bg['1'];
+    L.push(assert(g1.x === 10 && g1.x + g1.w === 55, `แม่เหล็กดูดขอบชิด 55% เป๊ะ (ได้ x=${g1.x}, ขอบขวา=${g1.x + g1.w})`));
+
+    // (c) resize: จอ 1 (w=30) ลากมุมขยายขวาทับจอ 2 (ขอบซ้ายที่ 30) → w ต้องหยุดที่ 30
+    bg['1'] = { x: 0, y: 0, w: 30, h: 50 };
+    bg['2'] = { x: 30, y: 0, w: 70, h: 50 };
+    bg['3'] = { x: 0, y: 50, w: 50, h: 50 };
+    bg['4'] = { x: 50, y: 50, w: 50, h: 50 };
+    w.applyGeometry(1); w.applyGeometry(2); w.applyGeometry(3); w.applyGeometry(4);
+    fireMouse(rh1, 'mousedown', cr.left + cr.width * 0.30, cr.top + cr.height * 0.45);
+    fireMouse(w.document.body, 'mousemove', cr.left + cr.width * 0.60, cr.top + cr.height * 0.45);
+    fireMouse(w.document.body, 'mouseup', cr.left + cr.width * 0.60, cr.top + cr.height * 0.45);
+    g1 = bg['1'];
+    L.push(assert(g1.w <= 30.01, `ขยายทับจอ 2 ไม่ได้ — w หยุดที่ ${g1.w} (ต้อง ≤ 30)`));
+
+    // (d) แผงเลย์เอาต์ยุบเข้าเมนู Layout: บันทึก → มี option ใน dropdown + ปุ่มลบ + เลือกแล้วโหลด
+    w.__pv.resetLayouts();
+    w.document.getElementById('cl-new-name').value = 'ทดสอบชน';
+    w.saveCurrentCustomLayout();
+    const opts = w.document.querySelectorAll('#layout-presets-group option');
+    L.push(assert(opts.length === 1 && opts[0].value === 'custom-preset:0', `เมนู Layout มีเลย์เอาต์ที่บันทึกไว้ (ได้ ${opts.length})`));
+    const sel = w.document.getElementById('layout-select');
+    L.push(assert(sel.value === 'custom-preset:0', `dropdown ชี้เลย์เอาต์ที่กำลังใช้ (ค่า: ${sel.value})`));
+    const delBtn = w.document.getElementById('btn-del-preset');
+    L.push(assert(delBtn.style.display !== 'none', 'ปุ่ม 🗑 แสดงเมื่อกำลังใช้เลย์เอาต์ที่บันทึกไว้'));
+    w.changeLayout('layout-2');
+    w.changeLayout('custom-preset:0');
+    L.push(assert(w.__pv.get('layoutMode') === 'custom' && w.__pv.get('activeLayoutIndex') === 0, 'เลือก preset จากเมนู = เข้า custom พร้อมโหลดถูกรายการ'));
+    w.__pv.resetLayouts();
+    w.changeLayout('layout-4');
+  } catch (e) { L.push('❌ ERROR: ' + e.message); }
+  out('out11', L);
+}
+</script>
+</body>
+</html>

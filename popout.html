@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>Pop-out</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0c0e0c;
+      --surface: #141714;
+      --surface2: #1a1e1a;
+      --border: #242a24;
+      --border-soft: #1d221d;
+      --text: #e8eae8;
+      --dim: #9aa39a;
+      --faint: #6b736b;
+      --accent: #30d158;
+      --accent-soft: rgba(48, 209, 88, 0.14);
+      --danger: #ff5a5f;
+    }
+    body {
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      filter: brightness(1);
+    }
+
+    /* ปุ่มเลือกสีธีมลัด (sync กับสีเน้นของแอปหลัก) */
+    .mini-theme { display: flex; align-items: center; gap: 3px; }
+    .mini-theme button {
+      width: 12px;
+      height: 12px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.25);
+      cursor: pointer;
+    }
+    .mini-theme button:hover { transform: scale(1.2); }
+
+    /* แถบปุ่มควบคุมด้านบน */
+    .popout-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-soft);
+      flex-wrap: nowrap;
+      z-index: 10;
+    }
+    .popout-bar button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      padding: 4px 9px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 11px;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .popout-bar button:hover { background: var(--surface2); color: var(--text); border-color: #2e352e; }
+    .popout-bar button.mute-off { background: rgba(255, 90, 95, 0.14); border-color: transparent; color: var(--danger); }
+    .popout-bar button.pin-on {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .popout-bar button.btn-close { background: transparent; border-color: transparent; color: var(--danger); }
+    .popout-bar button.btn-close:hover { background: rgba(255, 90, 95, 0.14); border-color: transparent; color: var(--danger); }
+
+    .vol-control {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border-soft);
+    }
+    .vol-control input[type=range] { width: 70px; cursor: pointer; accent-color: var(--accent); }
+    .vol-control span { font-size: 10px; min-width: 30px; text-align: center; color: #aaa; }
+
+    .bar-spacer { flex: 1; }
+
+    webview {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+  </style>
+</head>
+<body>    <div class="popout-bar">
+    <div class="app-brand" style="display:flex;align-items:center;gap:6px;margin-right:4px;">
+      <img src="assets/icon.png" alt="" style="width:16px;height:16px;border-radius:5px;display:block;">
+      <span style="font-size:11px;font-weight:700;color:var(--text);">Pitch<b style="color:var(--accent);">View</b></span>
+    </div>
+    <button id="mute-btn" onclick="toggleMute()" title="เปิด/ปิดเสียงจอนี้">🔊</button>
+    <div class="vol-control">
+      <input type="range" id="vol-slider" min="0" max="100" value="100" oninput="setVolume(this.value)">
+      <span id="vol-txt">100%</span>
+    </div>
+    <button onclick="refreshStream()" title="รีเฟรชสตรีม">🔄 รีเฟรช</button>
+    <div class="mini-theme" title="เปลี่ยนสีเน้นของแอป (เห็นชัดบนพื้นหลังมืด)">
+      <button style="background:#30d158" onclick="setLocalAccent('#30d158')"></button>
+      <button style="background:#64b5f6" onclick="setLocalAccent('#64b5f6')"></button>
+      <button style="background:#ffb74d" onclick="setLocalAccent('#ffb74d')"></button>
+      <button style="background:#ba68c8" onclick="setLocalAccent('#ba68c8')"></button>
+      <button style="background:#f06292" onclick="setLocalAccent('#f06292')"></button>
+    </div>
+    <span class="bar-spacer"></span>
+    <button id="pin-btn" onclick="togglePin()" title="ตรึงหน้าต่างนี้ไว้เหนือโปรแกรมอื่นเสมอ">📌 ตรึง</button>
+    <button class="btn-close" onclick="closePopout()" title="ปิดหน้าต่างนี้ (จอกลับไปที่กริดเดิม)">✕ ปิด</button>
+  </div>
+
+  <webview
+    id="wv"
+    src="about:blank"
+    partition="persist:dooball_session"
+    allowpopups="false"
+    nativeWindowOpen="true">
+  </webview>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const params = new URLSearchParams(location.search);
+    const streamId = Number(params.get('id'));
+    const url = params.get('url') || 'about:blank';
+    const initialVol = Number(params.get('vol') || 100);
+    const initialZoom = Number(params.get('zoom') || 1);
+
+    let muted = false;
+    let pinned = false;
+
+    // หน้าต่างแยกเริ่มต้นแบบปิดเสียงถ้าปริมาณเสียงที่ส่งมาเป็น 0
+    if (initialVol <= 0) muted = true;
+
+    const wv = document.getElementById('wv');
+    wv.src = url;
+
+    wv.addEventListener('dom-ready', () => {
+      if (initialZoom && initialZoom !== 1) wv.setZoomFactor(initialZoom);
+      setVolume(initialVol);
+      wv.setAudioMuted(muted);
+      updateMuteUI();
+      // สั่งเล่นอัตโนมัติเมื่อโหลดเสร็จ
+      wv.executeJavaScript(`
+        (function() {
+          document.querySelectorAll('video').forEach(v => { v.play().catch(function(){}); });
+        })();
+      `).catch(() => {});
+    });
+
+    // เว็บในหน้าต่างนี้เปลี่ยนหน้าเอง → แจ้งหน้าหลักให้อัปเดตช่อง URL ของจอนี้ (ลงทะเบียนครั้งเดียว)
+    const syncUrlBack = () => {
+      try {
+        const cur = wv.getURL();
+        if (cur && cur !== 'about:blank') ipcRenderer.send('popout-url', { streamId: streamId, url: cur });
+      } catch (err) {}
+    };
+    wv.addEventListener('did-navigate', syncUrlBack);
+    wv.addEventListener('did-navigate-in-page', syncUrlBack);
+
+    function toggleMute() {
+      muted = !muted;
+      wv.setAudioMuted(muted);
+      updateMuteUI();
+    }
+
+    // เลื่อนล้อเมาส์บนปุ่มเสียง = ปรับระดับเสียง (เหมือนหน้าหลัก)
+    document.getElementById('mute-btn').addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const cur = Number(document.getElementById('vol-slider').value);
+      const next = Math.min(100, Math.max(0, cur + (e.deltaY < 0 ? 5 : -5)));
+      document.getElementById('vol-slider').value = next;
+      setVolume(next);
+    }, { passive: false });
+
+    function updateMuteUI() {
+      const btn = document.getElementById('mute-btn');
+      if (btn) {
+        btn.innerText = muted ? '🔇' : '🔊';
+        btn.classList.toggle('mute-off', muted);
+        btn.title = muted ? 'เปิดเสียงจอนี้' : 'ปิดเสียงจอนี้';
+      }
+    }
+
+    function setVolume(v) {
+      const frac = v / 100;
+      document.getElementById('vol-txt').innerText = v + '%';
+      // ถ้าปิดเสียงอยู่แล้วลากเพิ่ม ให้เลิกปิดเสียงพร้อมกัน
+      if (muted && frac > 0) {
+        muted = false;
+        wv.setAudioMuted(false);
+        updateMuteUI();
+      }
+      wv.executeJavaScript(`
+        (function() {
+          document.querySelectorAll('video').forEach(v => { v.volume = ${frac}; });
+        })();
+      `).catch(() => {});
+    }
+
+    function refreshStream() {
+      wv.reload();
+    }
+
+    // เปลี่ยนสีเน้นของหน้าต่างนี้ (เห็นชัดตอนใช้บนพื้นหลังมืด/เกม)
+    function setLocalAccent(hex) {
+      const m = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex || '');
+      if (!m) return;
+      const rgb = [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+      const root = document.documentElement.style;
+      root.setProperty('--accent', hex);
+      root.setProperty('--accent-soft', `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.14)`);
+    }
+
+    function togglePin() {
+      pinned = !pinned;
+      ipcRenderer.send('popout-control', streamId, 'toggle-pin');
+      updatePinUI();
+    }
+    function updatePinUI() {
+      const btn = document.getElementById('pin-btn');
+      if (btn) {
+        btn.innerText = pinned ? '📌 ตรึงอยู่' : '📌 ตรึง';
+        btn.classList.toggle('pin-on', pinned);
+        btn.title = pinned ? 'ยกเลิกการตรึงหน้าต่าง' : 'ตรึงหน้าต่างนี้ไว้เหนือโปรแกรมอื่นเสมอ';
+      }
+    }
+
+    function closePopout() {
+      ipcRenderer.send('close-popout', streamId);
+    }
+
+    // ปุ่มในหน้าต่างทำงานผ่าน IPC สู่ main process (ตรึงหน้าต่าง/ปิดหน้าต่าง)
+    // สถานะกลับมาอัปเดตปุ่มผ่านช่อง popout-state เพื่อให้ UI ตรงเสมอ
+    ipcRenderer.on('popout-state', (event, sid, state) => {
+      if (sid !== streamId) return;
+      if (state && state.pinned !== undefined) {
+        pinned = state.pinned;
+        updatePinUI();
+      }
+      if (state && state.muted !== undefined) {
+        muted = state.muted;
+        wv.setAudioMuted(muted);
+        updateMuteUI();
+      }
+    });
+  </script>
+</body>
+</html>
